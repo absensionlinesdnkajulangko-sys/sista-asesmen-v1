@@ -42,7 +42,7 @@ export default function Sidebar({ active, onChange, onLogout }: SidebarProps) {
           </div>
           <div>
             <h1 className="text-xl font-black text-slate-900 tracking-tighter uppercase leading-none">SISTA</h1>
-            <p className="text-[10px] font-bold text-citrus-600 tracking-widest uppercase">ASESMEN PINTAR</p>
+            <p className="text-[10px] font-bold text-citrus-600 tracking-widest uppercase">SISTEM ASESMEN PINTAR</p>
           </div>
         </div>
 
@@ -85,11 +85,11 @@ export default function Sidebar({ active, onChange, onLogout }: SidebarProps) {
           className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-red-500 hover:bg-red-50 transition-all border border-red-100 shadow-sm"
         >
           <LogOut className="w-5 h-5" />
-          <span>Keluar Sistem</span>
+          <span>Logout</span>
         </button>
         
         <div className="mt-6 text-center">
-          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter italic">V.3.0 • Developed by FIDHAL TOUNA AI</p>
+          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter italic">V.1.0 • Developed by FIDHAL TOUNA AI</p>
         </div>
       </div>
     </aside>
