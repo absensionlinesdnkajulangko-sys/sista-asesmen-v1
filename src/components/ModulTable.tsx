@@ -248,7 +248,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
-      {/* STYLE CSS KHUSUS UNTUK FIX PRINT LAYOUT YANG TERPOTONG */}
+{/* STYLE CSS UTUK MEMPERBAIKI KETIGA TAB LAYOUT (SOAL, KUNCI, KISI) SAAT DICETAK */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
@@ -272,7 +272,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             max-width: 100% !important;
             overflow: visible !important;
           }
-          /* Paksa container cetak menggunakan lebar kertas penuh */
+          /* Pembungkus Kertas Utama */
           div[ref], .bg-white {
             border: none !important;
             box-shadow: none !important;
@@ -281,8 +281,34 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             width: 100% !important;
             max-width: 100% !important;
           }
-          /* Hindari pemotongan baris di tengah halaman */
-          .break-inside-avoid, tr, table {
+          /* Perbaikan Mutlak untuk Tabel Kunci & Kisi-kisi agar Tidak Terpotong ke Kanan */
+          table, .spreadsheet-table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important; /* Memaksa kolom tunduk pada lebar kertas */
+            word-wrap: break-word !important; /* Memotong teks panjang ke bawah (wrap) */
+            border-collapse: collapse !important;
+            margin-bottom: 15pt !important;
+          }
+          /* Distribusi Lebar Kolom Tabel yang Aman di Kertas A4/F4 */
+          .spreadsheet-table th, .spreadsheet-table td {
+            padding: 6px !important;
+            font-size: 10pt !important;
+            line-height: 1.3 !important;
+            vertical-align: top !important;
+            word-break: break-word !important;
+          }
+          /* Atur spesifik lebar kolom agar proporsional */
+          .spreadsheet-table th:nth-child(1), .spreadsheet-table td:nth-child(1) { width: 8% !important; }  /* No */
+          .spreadsheet-table th:nth-child(2), .spreadsheet-table td:nth-child(2) { width: 15% !important; } /* Bentuk Soal / CP */
+          
+          /* Atasi elemen pembungkus table-responsive bawaan Tailwind */
+          .overflow-x-auto {
+            overflow: visible !important;
+            max-width: 100% !important;
+          }
+          /* Cegah pemotongan baris di tengah halaman */
+          .break-inside-avoid, tr, table, .question-item {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
