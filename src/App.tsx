@@ -200,8 +200,8 @@ export default function App() {
             <div className="flex items-center gap-3 px-3 py-2 bg-white border border-citrus-100 rounded-2xl shadow-sm">
               <div className="w-10 h-10 rounded-xl gradient-citrus flex items-center justify-center text-white font-bold">P</div>
               <div className="text-left">
-                <p className="text-xs font-bold text-slate-900 leading-none">Prof. Educator</p>
-                <p className="text-[10px] text-citrus-600 font-bold uppercase tracking-wider">Premium Account</p>
+                <p className="text-xs font-bold text-slate-900 font-bold uppercase tracking-wider">GENERATOR AI</p>
+                <p className="text-[10px] text-citrus-600 leading-none">Premium Account</p>
               </div>
             </div>
           </div>
