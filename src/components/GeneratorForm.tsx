@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Send, Plus, Minus, School, User as UserIcon, Briefcase, GraduationCap, Calendar, BookOpen, Layers, Target, ClipboardList, Trash2 } from 'lucide-react';
 import { SoalFormData, QuestionType, QuestionConfig } from '../types';
@@ -15,26 +15,65 @@ const COGNITIVE_LEVELS = ['LOTS', 'MOTS', 'HOTS'];
 const QUESTION_TYPES: QuestionType[] = ['Pilihan Ganda', 'Pilihan Ganda Kompleks', 'Isian Singkat', 'Uraian', 'Benar Salah', 'Menjodohkan'];
 
 export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFormProps) {
-  const [formData, setFormData] = useState<SoalFormData>({
-    schoolName: '',
-    teacherName: '',
-    teacherNip: '',
-    position: 'Guru Kelas',
-    principalName: '',
-    principalNip: '',
-    regionName: '',
-    academicYear: '',
-    level: 'SD',
-    grade: '',
-    semester: 'I / Ganjil',
-    subject: '',
-    material: '',
-    cp: '',
-    tp: [''],
-    withImages: true,
-    questionConfigs: [{ type: 'Pilihan Ganda', count: 5, optionCount: 4, scorePerItem: 1 }],
-    cognitiveLevel: ['MOTS']
+  // Menginisialisasi state dengan membaca data dari localStorage terlebih dahulu agar isian tetap awet
+  const [formData, setFormData] = useState<SoalFormData>(() => {
+    const savedData = localStorage.getItem(`sista_form_${mode}`);
+    if (savedData) {
+      try {
+        return JSON.parse(savedData);
+      } catch (e) {
+        console.error("Gagal membaca data formulir dari localStorage", e);
+      }
+    }
+    // Isian default jika data penyimpanan lokal masih kosong
+    return {
+      schoolName: '',
+      teacherName: '',
+      teacherNip: '',
+      position: 'Guru Kelas',
+      principalName: '',
+      principalNip: '',
+      regionName: '',
+      academicYear: '',
+      level: 'SD',
+      grade: '',
+      semester: 'I / Ganjil',
+      subject: '',
+      material: '',
+      cp: '',
+      tp: [''],
+      withImages: true,
+      questionConfigs: [{ type: 'Pilihan Ganda', count: 5, optionCount: 4, scorePerItem: 1 }],
+      cognitiveLevel: ['MOTS']
+    };
   });
+
+  // Efek untuk menyimpan isian ke localStorage secara otomatis setiap kali ada perubahan data formulir
+  useEffect(() => {
+    localStorage.setItem(`sista_form_${mode}`, JSON.stringify(formData));
+  }, [formData, mode]);
+
+  // Efek untuk memperbarui data form secara aman saat pengguna berpindah tab menu (PH, STS, SAS)
+  useEffect(() => {
+    const savedData = localStorage.getItem(`sista_form_${mode}`);
+    if (savedData) {
+      try {
+        setFormData(JSON.parse(savedData));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      // Jika mode tersebut belum pernah diisi, pertahankan data sekolah tetapi kosongkan bagian materi pokok
+      setFormData(prev => ({
+        ...prev,
+        grade: '',
+        subject: '',
+        material: '',
+        cp: '',
+        tp: ['']
+      }));
+    }
+  }, [mode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -312,45 +351,45 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
           ))}
         </div>
 
-            <div className="space-y-4 border-t border-citrus-100 pt-6">
-              <label className={labelClass}>Level Kognitif</label>
-              <div className="flex flex-wrap gap-3">
-                {COGNITIVE_LEVELS.map(item => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => handleLevelToggle(item)}
-                    className={cn(
-                      "px-6 py-3 rounded-xl text-sm font-semibold border transition-all",
-                      formData.cognitiveLevel.includes(item)
-                        ? "bg-citrus-600 border-citrus-600 text-white shadow-md shadow-citrus-600/20"
-                        : "bg-white border-citrus-200 text-citrus-700 hover:border-citrus-400"
-                    )}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-              <div className="pt-4">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className="relative">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer"
-                      checked={formData.withImages}
-                      onChange={(e) => setFormData({ ...formData, withImages: e.target.checked })}
-                    />
-                    <div className="w-12 h-6 bg-slate-200 peer-checked:bg-citrus-600 rounded-full transition-colors" />
-                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6 shadow-sm" />
-                  </div>
-                  <span className="text-sm font-bold text-slate-700 group-hover:text-citrus-600 transition-colors">Generate Stimulus Gambar Otomatis (AI Image)</span>
-                </label>
-              </div>
-              {formData.cognitiveLevel.length === 0 && (
-                <p className="text-xs text-red-500 italic">Pilih minimal satu level kognitif.</p>
-              )}
-            </div>
+        <div className="space-y-4 border-t border-citrus-100 pt-6">
+          <label className={labelClass}>Level Kognitif</label>
+          <div className="flex flex-wrap gap-3">
+            {COGNITIVE_LEVELS.map(item => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleLevelToggle(item)}
+                className={cn(
+                  "px-6 py-3 rounded-xl text-sm font-semibold border transition-all",
+                  formData.cognitiveLevel.includes(item)
+                    ? "bg-citrus-600 border-citrus-600 text-white shadow-md shadow-citrus-600/20"
+                    : "bg-white border-citrus-200 text-citrus-700 hover:border-citrus-400"
+                )}
+              >
+                {item}
+              </button>
+            ))}
           </div>
+          <div className="pt-4">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="relative">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={formData.withImages}
+                  onChange={(e) => setFormData({ ...formData, withImages: e.target.checked })}
+                />
+                <div className="w-12 h-6 bg-slate-200 peer-checked:bg-citrus-600 rounded-full transition-colors" />
+                <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6 shadow-sm" />
+              </div>
+              <span className="text-sm font-bold text-slate-700 group-hover:text-citrus-600 transition-colors">Generate Stimulus Gambar Otomatis (AI Image)</span>
+            </label>
+          </div>
+          {formData.cognitiveLevel.length === 0 && (
+            <p className="text-xs text-red-500 italic">Pilih minimal satu level kognitif.</p>
+          )}
+        </div>
+      </div>
 
       {/* Submit Button */}
       <motion.button
