@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Send, Plus, Minus, School, User as UserIcon, Briefcase, GraduationCap, Calendar, BookOpen, Layers, Target, ClipboardList, Trash2 } from 'lucide-react';
+import { Send, Plus, Minus, School, User as UserIcon, Briefcase, GraduationCap, Calendar, BookOpen, Layers, Target, ClipboardList, Trash2, AlertTriangle } from 'lucide-react';
 import { SoalFormData, QuestionType, QuestionConfig } from '../types';
 import { NavItem } from './Sidebar';
 import { cn } from '../lib/utils';
@@ -14,8 +14,14 @@ interface GeneratorFormProps {
 const COGNITIVE_LEVELS = ['LOTS', 'MOTS', 'HOTS'];
 const QUESTION_TYPES: QuestionType[] = ['Pilihan Ganda', 'Pilihan Ganda Kompleks', 'Isian Singkat', 'Uraian', 'Benar Salah', 'Menjodohkan'];
 
+// KODE KEAMANAN / NAMA SEKOLAH YANG DIIZINKAN
+const ALLOWED_SCHOOLS = [
+  "SD Negeri 1 Ampana Kota",
+  "SD NEGERI 1 AMPANA KOTA",
+  "SD NEGERI UNGGULAN" // Anda bisa menambahkan lebih banyak di sini
+];
+
 export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFormProps) {
-  // Menginisialisasi state dengan membaca data dari localStorage terlebih dahulu agar isian tetap awet
   const [formData, setFormData] = useState<SoalFormData>(() => {
     const savedData = localStorage.getItem(`sista_form_${mode}`);
     if (savedData) {
@@ -25,7 +31,6 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
         console.error("Gagal membaca data formulir dari localStorage", e);
       }
     }
-    // Isian default jika data penyimpanan lokal masih kosong
     return {
       schoolName: '',
       teacherName: '',
@@ -48,12 +53,16 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
     };
   });
 
-  // Efek untuk menyimpan isian ke localStorage secara otomatis setiap kali ada perubahan data formulir
+  // Validasi status lisensi sekolah
+  const isSchoolValid = ALLOWED_SCHOOLS.some(
+  (school) => school.toLowerCase() === formData.schoolName.trim().toLowerCase()
+  );
+  const showSecurityWarning = formData.schoolName.trim().length > 0 && !isSchoolValid;
+
   useEffect(() => {
     localStorage.setItem(`sista_form_${mode}`, JSON.stringify(formData));
   }, [formData, mode]);
 
-  // Efek untuk memperbarui data form secara aman saat pengguna berpindah tab menu (PH, STS, SAS)
   useEffect(() => {
     const savedData = localStorage.getItem(`sista_form_${mode}`);
     if (savedData) {
@@ -63,7 +72,6 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
         console.error(e);
       }
     } else {
-      // Jika mode tersebut belum pernah diisi, pertahankan data sekolah tetapi kosongkan bagian materi pokok
       setFormData(prev => ({
         ...prev,
         grade: '',
@@ -131,6 +139,7 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSchoolValid) return; // Mencegah submit lewat bypass enter key
     onSubmit(formData);
   };
 
@@ -151,7 +160,19 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className={labelClass}><School className="w-4 h-4"/> Nama Satuan Pendidikan</label>
-            <input name="schoolName" value={formData.schoolName} onChange={handleChange} required className={inputClass} placeholder="Contoh: SD Negeri 1 Merdeka" />
+            <input 
+              name="schoolName" 
+              value={formData.schoolName} 
+              onChange={handleChange} 
+              required 
+              className={cn(inputClass, showSecurityWarning && "border-red-400 focus:ring-red-400")} 
+              placeholder="Contoh: SD Negeri 1 Merdeka" 
+            />
+            {showSecurityWarning && (
+              <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3 h-3" /> Nama Satuan Pendidikan tidak terdaftar dalam sistem keamanan aplikasi!
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <label className={labelClass}><UserIcon className="w-4 h-4"/> Nama Guru</label>
@@ -393,19 +414,26 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
 
       {/* Submit Button */}
       <motion.button
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
+        whileHover={(!isLoading && isSchoolValid && formData.cognitiveLevel.length > 0) ? { scale: 1.01 } : {}}
+        whileTap={(!isLoading && isSchoolValid && formData.cognitiveLevel.length > 0) ? { scale: 0.99 } : {}}
         type="submit"
-        disabled={isLoading || formData.cognitiveLevel.length === 0}
+        disabled={isLoading || formData.cognitiveLevel.length === 0 || !isSchoolValid}
         className={cn(
-          "w-full gradient-citrus text-white font-bold py-5 rounded-2xl shadow-xl shadow-citrus-500/20 flex items-center justify-center gap-3 transition-opacity",
-          (isLoading || formData.cognitiveLevel.length === 0) && "opacity-50 cursor-not-allowed"
+          "w-full font-bold py-5 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all",
+          (isLoading || formData.cognitiveLevel.length === 0 || !isSchoolValid)
+            ? "bg-slate-300 text-slate-500 shadow-none cursor-not-allowed opacity-70"
+            : "gradient-citrus text-white shadow-citrus-500/20 cursor-pointer"
         )}
       >
         {isLoading ? (
           <>
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Generating Assessment...
+          </>
+        ) : !isSchoolValid ? (
+          <>
+            <AlertTriangle className="w-6 h-6" />
+            Aplikasi Terkunci Kode Validasi Anda Tidak Valid. (Hubungi Fidhal Touna AI)
           </>
         ) : (
           <>
