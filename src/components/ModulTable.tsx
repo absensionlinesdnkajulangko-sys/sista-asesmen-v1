@@ -334,17 +334,23 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             max-width: 100% !important;
           }
           
-          /* Optimasi Lembar Soal: Izinkan mengalir padat tanpa membuang ruang bawah halaman */
+          /* Optimasi Lembar Soal: Mengalir padat & dinamis agar sisa halaman bawah tidak kosong melompong */
           .question-item {
             page-break-inside: auto !important; 
             break-inside: auto !important;
           }
           
-          /* Pertahankan keutuhan per-blok soal (nomor, teks, opsi) agar tidak terpisah jelek */
+          /* FIX: Mengizinkan pemotongan konten yang fleksibel (misalnya stimulus panjang dipisah ke hal berikutnya) */
           .break-inside-avoid {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            margin-bottom: 14pt !important;
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+            margin-bottom: 12pt !important;
+          }
+
+          /* Mencegah sebatang kara: Teks pertanyaan tunggal tidak boleh tertinggal sendirian di ujung bawah halaman */
+          .question-table, .flex.items-start.gap-4 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           
           p, span, td, th, div {
