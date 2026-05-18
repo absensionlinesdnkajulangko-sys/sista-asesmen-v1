@@ -248,7 +248,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
-{/* STYLE CSS UTUK MEMPERBAIKI KETIGA TAB LAYOUT (SOAL, KUNCI, KISI) SAAT DICETAK */}
+      {/* STYLE CSS UNTUK MENGHEMAT KERTAS & MERAPIKAN TABEL KUNCI/KISI SAAT DICETAK */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
@@ -281,37 +281,53 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             width: 100% !important;
             max-width: 100% !important;
           }
-          /* Perbaikan Mutlak untuk Tabel Kunci & Kisi-kisi agar Tidak Terpotong ke Kanan */
+          /* Perbaikan Mutlak Tata Letak Tabel */
           table, .spreadsheet-table {
             width: 100% !important;
             max-width: 100% !important;
-            table-layout: fixed !important; /* Memaksa kolom tunduk pada lebar kertas */
-            word-wrap: break-word !important; /* Memotong teks panjang ke bawah (wrap) */
+            table-layout: fixed !important; /* Mengunci lebar tabel agar tidak meluber ke kanan */
+            word-wrap: break-word !important;
             border-collapse: collapse !important;
             margin-bottom: 15pt !important;
+            
+            /* Izinkan tabel terbelah antar-halaman secara natural untuk menghemat kertas */
+            page-break-inside: auto !important;
+            break-inside: auto !important;
           }
-          /* Distribusi Lebar Kolom Tabel yang Aman di Kertas A4/F4 */
+          
+          /* Cegah isi satu baris (tr) terpotong secara vertikal di tengah teks */
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          
+          /* Distribusi Lebar Kolom Tabel & Ukuran Font Efisien */
           .spreadsheet-table th, .spreadsheet-table td {
             padding: 6px !important;
             font-size: 10pt !important;
             line-height: 1.3 !important;
             vertical-align: top !important;
-            word-break: break-word !important;
+            word-break: break-word !important; /* Potong teks panjang ke bawah (wrap) */
+            border: 1px solid #000000 !important; /* Pastikan garis tabel tetap tercetak jelas */
           }
-          /* Atur spesifik lebar kolom agar proporsional */
-          .spreadsheet-table th:nth-child(1), .spreadsheet-table td:nth-child(1) { width: 8% !important; }  /* No */
-          .spreadsheet-table th:nth-child(2), .spreadsheet-table td:nth-child(2) { width: 15% !important; } /* Bentuk Soal / CP */
           
-          /* Atasi elemen pembungkus table-responsive bawaan Tailwind */
+          /* Aturan Proporsi Kolom Lembar Kunci & Kisi-Kisi */
+          .spreadsheet-table th:nth-child(1), .spreadsheet-table td:nth-child(1) { width: 7% !important; }  /* No */
+          .spreadsheet-table th:nth-child(2), .spreadsheet-table td:nth-child(2) { width: 15% !important; } /* No Soal / Elemen */
+          
+          /* Atasi pembungkus responsif bawaan Tailwind */
           .overflow-x-auto {
             overflow: visible !important;
             max-width: 100% !important;
           }
-          /* Cegah pemotongan baris di tengah halaman */
-          .break-inside-avoid, tr, table, .question-item {
+          
+          /* Khusus untuk halaman evaluasi/soal biasa */
+          .question-item {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            margin-bottom: 12pt !important;
           }
+          
           p, span, td, th, div {
             color: black !important;
           }
@@ -632,6 +648,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           </div>
         )}
 
+        {/* Signatures - Hidden on Soal sheet */}
         {activeTab !== 'soal' && (
           <table className="signature-table mt-20 no-border w-full">
             <tbody>
