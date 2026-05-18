@@ -20,7 +20,7 @@ export default function Login({ onLogin }: LoginProps) {
 
     // Standard username: Admin, Password: admin123
     setTimeout(() => {
-      if (username === 'Admin' && password === 'admin123') {
+      if (username === 'Admin' && password === 'sdnkjl1*') {
         onLogin();
       } else {
         setError('Username atau password salah.');
