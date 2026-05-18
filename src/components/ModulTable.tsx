@@ -342,8 +342,8 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                 ? imageUrl.replace('IMAGE_STIMULUS:', '') 
                 : q.text; // Fallback to question text if no stimulus provided
               
-              const isBeside = q.text.toLowerCase().includes('di samping');
-              const isAbove = q.text.toLowerCase().includes('di atas');
+              const isBeside = q.text?.toLowerCase()?.includes('di samping') || false;
+              const isAbove = q.text?.toLowerCase()?.includes('di atas') || false;    
               
               return (
                 <div key={q.number} className="space-y-4 break-inside-avoid border-b border-slate-50 pb-6">
