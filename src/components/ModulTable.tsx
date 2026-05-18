@@ -381,4 +381,322 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             {showExportOptions && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-citrus-100 overflow-hidden z-50"
+              >
+                <button
+                  onClick={downloadWord}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-citrus-50 text-citrus-900 transition-colors border-b border-citrus-50"
+                >
+                  <FileText className="w-5 h-5 text-blue-500" />
+                  Format Word (.doc)
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-citrus-50 text-citrus-900 transition-colors"
+                >
+                  <Printer className="w-5 h-5 text-citrus-600" />
+                  Cetak Langsung
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div ref={containerRef} className="bg-white p-8 md:p-12 shadow-2xl border border-slate-200 min-h-[1000px]">
+        <div className="text-center border-b-4 border-double border-black pb-4 mb-4">
+          <h1 className="text-2xl font-bold uppercase tracking-wide">{getHeaderText()}</h1>
+          <p className="text-sm font-medium mt-1">TAHUN AJARAN {formInput.academicYear}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 mb-8 text-[10px] md:text-xs border border-black p-4">
+          <div className="space-y-1">
+            <p><span className="font-bold w-32 inline-block uppercase">Satuan Pendidikan</span>: {formInput.schoolName}</p>
+            <p><span className="font-bold w-32 inline-block uppercase">Mata Pelajaran</span>: {formInput.subject}</p>
+            <p><span className="font-bold w-32 inline-block uppercase">Kelas / Semester</span>: {formInput.grade} / {formInput.semester}</p>
+            {(activeTab !== 'soal' || (mode !== 'sts' && mode !== 'sas')) && (
+              <p><span className="font-bold w-32 inline-block uppercase">Materi Pokok</span>: {data.header.material || formInput.material}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p><span className="font-bold w-32 inline-block uppercase">Nama Guru</span>: {formInput.teacherName}</p>
+            <p><span className="font-bold w-32 inline-block uppercase">NIP Guru</span>: {formInput.teacherNip}</p>
+            <p><span className="font-bold w-32 inline-block uppercase">Jabatan</span>: {formInput.position}</p>
+            <p><span className="font-bold w-32 inline-block uppercase">Alokasi Waktu</span>: {data.header.timeLimit || '60 Menit'}</p>
+          </div>
+        </div>
+
+        {activeTab === 'soal' && (
+          <div className="space-y-8">
+            <p className="font-bold border-b border-gray-200 pb-2 italic">Petunjuk: Kerjakanlah soal-soal di bawah ini dengan jujur dan teliti!</p>
+            {data.questions.map((q) => {
+              const imageUrl = q.imageUrl || '';
+              const stimulusForImage = imageUrl.startsWith('IMAGE_STIMULUS:') 
+                ? imageUrl.replace('IMAGE_STIMULUS:', '') 
+                : q.text;
+              
+              const isBeside = q.text?.toLowerCase()?.includes('di samping') || false;
+              const isAbove = q.text?.toLowerCase()?.includes('di atas') || false;    
+              
+              return (
+                <div key={q.number} className="break-inside-avoid border-b border-slate-50 pb-6 space-y-4">
+                  {q.stimulus && (
+                    <div className="bg-slate-50 p-6 rounded-xl border-2 border-slate-200 mb-4 text-justify italic shadow-inner print:bg-white print:p-4 print:border-slate-300">
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2 print:text-black">Stimulus Bacaan / Literasi</p>
+                      <div className="whitespace-pre-wrap leading-relaxed">{q.stimulus}</div>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col gap-4">
+                    {generatedImages[q.number] ? (
+                      <div className={cn(
+                        "relative group",
+                        isAbove ? "w-full max-w-2xl mx-auto" : "max-w-sm"
+                      )}>
+                        <img 
+                          src={generatedImages[q.number]} 
+                          className="w-full h-auto rounded-xl border border-slate-200 shadow-sm" 
+                          referrerPolicy="no-referrer" 
+                        />
+                        <button
+                          onClick={() => generateImage(q.number, stimulusForImage)}
+                          className="absolute top-2 right-2 no-print bg-white/90 backdrop-blur shadow-lg p-2 rounded-lg text-citrus-600 hover:text-citrus-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <DownloadCloud className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="no-print">
+                        <button
+                          onClick={() => generateImage(q.number, stimulusForImage)}
+                          disabled={isGeneratingImage[q.number]}
+                          className="gradient-citrus text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-citrus-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          <DownloadCloud className="w-4 h-4" />
+                          {isGeneratingImage[q.number] ? 'Memproses Gambar...' : 'Generate Stimulus Visual'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-4">
+                      <span className="font-bold min-w-[25px] h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0 print:bg-transparent print:text-black print:rounded-none print:w-auto print:min-w-0">{q.number}.</span>
+                      <div className="flex-1">
+                        <div className="text-justify leading-relaxed whitespace-pre-wrap font-medium text-slate-900 print:text-black">{q.text}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ml-9 space-y-4">
+                    {q.type === 'Pilihan Ganda' && (
+                      <div className="grid grid-cols-1 gap-2 ml-2">
+                        {q.options && q.options.length > 0 ? (
+                          q.options.map((opt, i) => (
+                            <div key={i} className="flex gap-3 items-start">
+                              <span className="font-bold text-slate-700 w-5">{String.fromCharCode(65 + i)}.</span>
+                              <span className="text-slate-800">{opt}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-xs italic text-red-500">Pilihan jawaban tidak tersedia (Gagal memproses data AI).</div>
+                        )}
+                      </div>
+                    )}
+
+                    {q.type === 'Benar Salah' && (
+                      <div className="grid grid-cols-1 gap-3 ml-2">
+                        <div className="flex gap-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
+                            <span className="text-sm font-bold">BENAR</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
+                            <span className="text-sm font-bold">SALAH</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {q.type === 'Pilihan Ganda Kompleks' && q.multiOptions && (
+                      <div className="grid grid-cols-1 gap-3 ml-2">
+                        {q.multiOptions.map((opt, i) => (
+                          <div key={i} className="flex gap-3 items-center">
+                            <div className="w-5 h-5 border-2 border-slate-400 rounded flex items-center justify-center text-[10px] font-bold text-slate-300">
+                            </div>
+                            <span className="text-slate-800">{opt.text}</span>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-citrus-600 font-bold italic mt-1 uppercase tracking-tight no-print">
+                          * Beri tanda centang (✓) pada kotak untuk jawaban yang benar (bisa lebih dari satu)
+                        </p>
+                      </div>
+                    )}
+
+                    {q.type === 'Menjodohkan' && q.matchingPairs && (
+                      <div className="ml-2">
+                        <table className="w-full border-2 border-slate-200 border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50">
+                              <th className="border-2 border-slate-200 p-2 text-xs font-bold w-1/2">Pernyataan A</th>
+                              <th className="border-2 border-slate-200 p-2 text-xs font-bold w-1/2">Pernyataan B</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {q.matchingPairs.map((pair, i) => (
+                              <tr key={i}>
+                                <td className="border-2 border-slate-200 p-3 text-sm">{pair.prompt}</td>
+                                <td className="border-2 border-slate-200 p-3 text-sm"></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {q.type === 'Isian Singkat' && (
+                      <div className="ml-2 mt-4">
+                        <div className="w-full border-b-2 border-dotted border-slate-300 h-8" />
+                      </div>
+                    )}
+
+                    {q.type === 'Uraian' && (
+                      <div className="ml-2 mt-4 space-y-2">
+                        <div className="w-full border-b-2 border-dotted border-slate-300 h-8" />
+                        <div className="w-full border-b-2 border-dotted border-slate-300 h-8" />
+                        <div className="w-full border-b-2 border-dotted border-slate-300 h-8" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activeTab === 'kunci' && (
+          <div className="space-y-8">
+            <h3 className="text-lg font-bold border-b-2 border-citrus-200 pb-2 text-citrus-800 uppercase tracking-tighter">Kunci Jawaban & Rubrik Penilaian</h3>
+            <table className="spreadsheet-table w-full">
+              <thead>
+                <tr>
+                  <th className="w-16 text-center">No</th>
+                  <th className="w-32">Bentuk</th>
+                  <th>Kunci & Pembahasan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.questions.map((q) => (
+                  <tr key={q.number}>
+                    <td className="text-center font-bold font-mono bg-citrus-50/20">{q.number}</td>
+                    <td className="text-xs font-bold text-center">
+                      <span className="px-2 py-1 rounded bg-slate-100 border border-slate-200">{q.type}</span>
+                    </td>
+                    <td>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-bold bg-citrus-500 text-white px-2 py-0.5 rounded">KUNCI</span>
+                          <p className="font-bold text-citrus-900">
+                            {typeof q.answerKey === 'object' && q.answerKey !== null
+                              ? Object.entries(q.answerKey)
+                                  .map(([key, val]) => `${key}: ${val}`)
+                                  .join(', ')
+                              : String(q.answerKey || '-')}
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase whitespace-nowrap">Bahasan:</span>
+                          <p className="text-sm text-slate-600 italic whitespace-pre-wrap">{q.explanation}</p>
+                        </div>
+                        <p className="text-[10px] text-citrus-600 font-bold uppercase tracking-widest">Level Kognitif: {q.cognitiveLevel}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'kisi' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-bold border-b-2 border-citrus-200 pb-2 text-citrus-800 uppercase tracking-tighter">Matriks Kisi-kisi Asesmen</h3>
+            <div className="overflow-x-auto">
+              <table className="spreadsheet-table w-full">
+                <thead>
+                  <tr>
+                    <th className="text-center">No</th>
+                    <th>Capaian & Tujuan Pembelajaran</th>
+                    <th>Indikator Soal</th>
+                    <th className="text-center">Level</th>
+                    <th className="text-center">Bentuk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.kisiKisi.map((item) => (
+                    <tr key={item.no}>
+                      <td className="text-center font-bold font-mono">{item.no}</td>
+                      <td className="text-xs leading-relaxed">
+                        <div className="font-bold mb-1">CP:</div>
+                        <p className="mb-2 italic text-slate-700 print:text-black">{formInput.cp}</p>
+                        <div className="font-bold mb-1">TP:</div>
+                        <p className="text-slate-800 print:text-black">{item.tp}</p>
+                      </td>
+                      <td className="text-xs italic text-slate-700 print:text-black">{item.indikatorSoal}</td>
+                      <td className="text-center">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 print:bg-transparent print:border-none print:text-black">{item.levelKognitif}</span>
+                      </td>
+                      <td className="text-center">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 print:bg-transparent print:border-none print:text-black">{item.bentukSoal}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 mt-8 no-print">
+              <div className="p-4 rounded-xl bg-slate-900 text-white text-center shadow-xl">
+                <p className="text-[10px] text-citrus-400 font-bold uppercase mb-1">Total Soal</p>
+                <p className="text-2xl font-black">{data.questions.length}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-white border border-citrus-100 text-center shadow-sm">
+                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Jenjang</p>
+                <p className="text-lg font-bold text-slate-900">{formInput.level}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-white border border-citrus-100 text-center shadow-sm">
+                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Materi Pokok</p>
+                <p className="text-xs font-bold text-slate-900 truncate px-2">{data.header.material || formInput.material}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Signatures - Hidden on Soal sheet */}
+        {activeTab !== 'soal' && (
+          <table className="signature-table mt-20 no-border w-full">
+            <tbody>
+              <tr>
+                <td className="text-left align-top">
+                  <p>Mengetahui,</p>
+                  <p>Kepala Sekolah</p>
+                  <div className="h-24"></div>
+                  <p className="font-bold underline uppercase">{formInput.principalName}</p>
+                  <p>NIP. {formInput.principalNip}</p>
+                </td>
+                <td className="text-left align-top">
+                  <p>{formInput.regionName}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <p>{formInput.position}</p>
+                  <div className="h-24"></div>
+                  <p className="font-bold underline uppercase">{formInput.teacherName}</p>
+                  <p>NIP. {formInput.teacherNip}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
