@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx api/index.ts",
-    "build": "vite build && esbuild api/index.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild api/index.ts --bundle --platform=node --format=cjs --external:vite --external:@tailwindcss/vite --external:express --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
