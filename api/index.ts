@@ -69,7 +69,7 @@ app.post("/api/generate", async (req, res) => {
       4. Gambar: JIKA stimulus (Pilihan Ganda/Kompleks/Jodohkan/Uraian) membutuhkan gambar (misal: "Perhatikan gambar berikut"), sertakan property "imageUrl" dengan format "IMAGE_STIMULUS: [deskripsi detail gambar untuk diconvert ke AI Image]".
       5. Kisi-kisi: Samakan No soal dengan data questions. Gunakan deskripsi TP yang sesuai untuk setiap nomor soal.
 
-      STRUKTUR JSON OUTPUT:
+      STRUKTUR JSON OUTPUT WAJIB SEPERTI INI (JANGAN DIUBAH KEY-NYA):
       {
         "header": {
           "schoolName": "${data.schoolName}",
@@ -78,8 +78,29 @@ app.post("/api/generate", async (req, res) => {
           "material": "(Hasil ringkasan materi pokok)",
           "timeLimit": "60 Menit"
         },
-        "questions": [ ... ],
-        "kisiKisi": [ ... ]
+        "questions": [
+          {
+            "number": 1,
+            "type": "Pilihan Ganda",
+            "stimulus": "Teks bacaan stimulus jika ada",
+            "text": "Kalimat pertanyaan soal",
+            "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+            "multiOptions": [{"text": "Pilihan Kompleks A"}],
+            "matchingPairs": [{"prompt": "Pernyataan A"}],
+            "answerKey": "A",
+            "explanation": "Penjelasan jawaban",
+            "cognitiveLevel": "MOTS"
+          }
+        ],
+        "kisiKisi": [
+          {
+            "no": 1,
+            "tp": "Deskripsi TP terkait",
+            "indikatorSoal": "Deskripsi indikator soal",
+            "levelKognitif": "MOTS",
+            "bentukSoal": "Pilihan Ganda"
+          }
+        ]
       }
 
       PENTING: Respond HANYA dengan JSON valid. JANGAN ada teks pembuka/penutup.
@@ -100,7 +121,53 @@ app.post("/api/generate", async (req, res) => {
     
     const cleanText = text.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
     
-    res.json(JSON.parse(cleanText));
+    // ================= NORMALISASI DATA UNTUK FRONTEND =================
+    const rawData = JSON.parse(cleanText);
+    
+    const parsedData: any = {
+      header: {
+        schoolName: rawData.header?.schoolName || data.schoolName,
+        subject: rawData.header?.subject || data.subject,
+        classSemester: rawData.header?.classSemester || `${data.grade} / ${data.semester}`,
+        material: rawData.header?.material || rawData.material || data.material || "Materi Pokok",
+        timeLimit: rawData.header?.timeLimit || "60 Menit"
+      },
+      questions: [],
+      kisiKisi: []
+    };
+
+    // Mapping Questions / Soal secara adaptif
+    const rawQuestions = rawData.questions || rawData.soal || [];
+    if (Array.isArray(rawQuestions)) {
+      parsedData.questions = rawQuestions.map((q: any, idx: number) => ({
+        number: q.number || q.no || q.nomor || (idx + 1),
+        type: q.type || q.jenis || q.bentukSoal || "Pilihan Ganda",
+        stimulus: q.stimulus || q.bacaan || "",
+        text: q.text || q.pertanyaan || q.soal || "",
+        options: q.options || q.pilihan || q.jawaban || [],
+        multiOptions: q.multiOptions || q.pilihanKompleks || [],
+        matchingPairs: q.matchingPairs || q.jodohkan || [],
+        answerKey: q.answerKey || q.kunci || q.kunciJawaban || "",
+        explanation: q.explanation || q.pembahasan || q.bahasan || "",
+        cognitiveLevel: q.cognitiveLevel || q.levelKognitif || q.level || "MOTS",
+        imageUrl: q.imageUrl || ""
+      }));
+    }
+
+    // Mapping Kisi-kisi secara adaptif
+    const rawKisi = rawData.kisiKisi || rawData.kisi_kisi || rawData.matriks || [];
+    if (Array.isArray(rawKisi)) {
+      parsedData.kisiKisi = rawKisi.map((k: any, idx: number) => ({
+        no: k.no || k.nomor || (idx + 1),
+        tp: k.tp || k.tujuanPembelajaran || "",
+        indikatorSoal: k.indikatorSoal || k.indikator || "",
+        levelKognitif: k.levelKognitif || k.level || "MOTS",
+        bentukSoal: k.bentukSoal || k.type || "Pilihan Ganda"
+      }));
+    }
+    // ===================================================================
+    
+    res.json(parsedData);
   } catch (error: any) {
     console.error("Gemini Error:", error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
@@ -112,7 +179,7 @@ const distPath = path.join(process.cwd(), "dist");
 app.use(express.static(distPath));
 app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
-});
+ });
 
 // Export the app for Vercel Serverless Functions
 export default app;
