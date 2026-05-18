@@ -161,18 +161,7 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
           <div className="space-y-2">
             <label className={labelClass}><School className="w-4 h-4"/> Nama Satuan Pendidikan</label>
             <input 
-              name="schoolName" 
-              value={formData.schoolName} 
-              onChange={handleChange} 
-              required 
-              className={cn(inputClass, showSecurityWarning && "border-red-400 focus:ring-red-400")} 
-              placeholder="Contoh: SD Negeri 1 Merdeka" 
-            />
-            {showSecurityWarning && (
-              <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
-                <AlertTriangle className="w-3 h-3" /> Nama Satuan Pendidikan tidak terdaftar dalam sistem keamanan aplikasi!
-              </p>
-            )}
+              name="schoolName" value={formData.schoolName} onChange={handleChange} required className={inputClass} placeholder="Contoh: SD Negeri 1 Merdeka" />
           </div>
           <div className="space-y-2">
             <label className={labelClass}><UserIcon className="w-4 h-4"/> Nama Guru</label>
