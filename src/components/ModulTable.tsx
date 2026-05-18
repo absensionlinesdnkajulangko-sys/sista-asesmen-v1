@@ -688,14 +688,14 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                   <p>Mengetahui,</p>
                   <p>Kepala Sekolah</p>
                   <div className="h-24"></div>
-                  <p className="font-bold underline uppercase">{formInput.principalName}</p>
+                  <p className="font-bold underline">{formInput.principalName}</p>
                   <p>NIP. {formInput.principalNip}</p>
                 </td>
                 <td className="text-left align-top">
                   <p>{formInput.regionName}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                   <p>{formInput.position}</p>
                   <div className="h-24"></div>
-                  <p className="font-bold underline uppercase">{formInput.teacherName}</p>
+                  <p className="font-bold underline">{formInput.teacherName}</p>
                   <p>NIP. {formInput.teacherNip}</p>
                 </td>
               </tr>
