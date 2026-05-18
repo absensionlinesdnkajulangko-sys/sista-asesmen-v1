@@ -54,7 +54,7 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">SISTA</h1>
             <p className="text-citrus-700 font-medium tracking-tight">Sistem Asesmen Pintar</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">GENERATOR</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">GENERATOR AI</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -121,7 +121,7 @@ export default function Login({ onLogin }: LoginProps) {
           </form>
 
           <p className="mt-8 text-center text-[10px] text-slate-400 font-bold tracking-widest uppercase italic">
-            BY FIDHAL TOUNA AI
+            BY FIDHAL TOUNA
           </p>
         </div>
       </motion.div>
