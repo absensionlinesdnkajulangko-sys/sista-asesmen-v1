@@ -61,7 +61,7 @@ app.post("/api/generate", async (req, res) => {
       1. Materi Utama: Jika input Materi Utama kosong, buatlah ringkasan materi pokok (2-4 kata) yang paling mewakili daftar TP di atas. Masukkan ke dalam property "header.material" (ini akan digunakan sebagai judul materi pokok di lembar asesmen).
       2. Distribusi Soal: Sebarkan jumlah soal secara merata atau proporsional ke semua Tujuan Pembelajaran (TP) yang diberikan.
       3. Stimulus & Soal: 
-         - Pilihan Ganda: WAJIB menyertakan property "options" sebagai array of strings. Jumlah pilihan harus ${data.questionConfigs.find((c: any) => c.type === 'Pilihan Ganda')?.optionCount || 4}.
+         - Pilihan Ganda: WAJIB menyertakan property "options" sebagai array of strings. Pilihan jawaban di dalam array JANGAN menyertakan huruf abjad penanda (Jangan sertakan "A.", "B.", dll), langsung isi teks jawabannya saja. Jumlah pilihan harus ${data.questionConfigs.find((c: any) => c.type === 'Pilihan Ganda')?.optionCount || 4}.
          - Pilihan Ganda Kompleks: WAJIB memiliki minimal 2 jawaban yang benar di "multiOptions". Berikan instruksi agar siswa memberi centang.
          - Isian Singkat: Jawaban eksak, singkat, padat.
          - Uraian: Jawaban terbuka berbobot dengan rubrik penilaian yang jelas di bagian eksplanasi.
@@ -84,7 +84,7 @@ app.post("/api/generate", async (req, res) => {
             "type": "Pilihan Ganda",
             "stimulus": "Teks bacaan stimulus jika ada",
             "text": "Kalimat pertanyaan soal",
-            "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+            "options": ["Pilihan A tanpa huruf abjad", "Pilihan B tanpa huruf abjad", "Pilihan C tanpa huruf abjad", "Pilihan D tanpa huruf abjad"],
             "multiOptions": [{"text": "Pilihan Kompleks A"}],
             "matchingPairs": [{"prompt": "Pernyataan A"}],
             "answerKey": "A",
@@ -144,7 +144,10 @@ app.post("/api/generate", async (req, res) => {
         type: q.type || q.jenis || q.bentukSoal || "Pilihan Ganda",
         stimulus: q.stimulus || q.bacaan || "",
         text: q.text || q.pertanyaan || q.soal || "",
-        options: q.options || q.pilihan || q.jawaban || [],
+        // Filter Regex untuk membersihkan prefiks abjad seperti "A. ", "B. ", dll. jika AI terlanjur membuatnya
+        options: (q.options || q.pilihan || q.jawaban || []).map((opt: string) => 
+          typeof opt === 'string' ? opt.replace(/^[A-E]\.\s*/i, '') : opt
+        ),
         multiOptions: q.multiOptions || q.pilihanKompleks || [],
         matchingPairs: q.matchingPairs || q.jodohkan || [],
         answerKey: q.answerKey || q.kunci || q.kunciJawaban || "",
