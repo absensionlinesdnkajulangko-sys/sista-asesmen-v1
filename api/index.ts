@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -108,30 +107,18 @@ app.post("/api/generate", async (req, res) => {
   }
 });
 
-// Handle Vite middleware for dev or static files for production
-async function setupApp() {
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-}
+// Serve static files directly for production/Vercel environments
+const distPath = path.join(process.cwd(), "dist");
+app.use(express.static(distPath));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
 
-setupApp();
-
-// Export the app for Vercel
+// Export the app for Vercel Serverless Functions
 export default app;
 
-// Only listen if running directly (not in Vercel)
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+// Only listen if running locally
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
