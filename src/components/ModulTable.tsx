@@ -256,7 +256,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
-      {/* STYLE CSS UNTUK MENGHEMAT KERTAS & MERAPIKAN TABEL KUNCI/KISI SAAT DICETAK */}
+      {/* STYLE CSS OPTIMASI CETAK: MENGHEMAT KERTAS & ADAPTIF KOLOM KISI-KISI */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
@@ -280,7 +280,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             max-width: 100% !important;
             overflow: visible !important;
           }
-          /* Pembungkus Kertas Utama */
           div[ref], .bg-white {
             border: none !important;
             box-shadow: none !important;
@@ -289,51 +288,52 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             width: 100% !important;
             max-width: 100% !important;
           }
-          /* Perbaikan Mutlak Tata Letak Tabel */
           table, .spreadsheet-table {
             width: 100% !important;
             max-width: 100% !important;
-            table-layout: fixed !important; /* Mengunci lebar tabel agar tidak meluber ke kanan */
+            table-layout: fixed !important;
             word-wrap: break-word !important;
             border-collapse: collapse !important;
             margin-bottom: 15pt !important;
-            
-            /* Izinkan tabel terbelah antar-halaman secara natural untuk menghemat kertas */
             page-break-inside: auto !important;
             break-inside: auto !important;
           }
-          
-          /* Cegah isi satu baris (tr) terpotong secara vertikal di tengah teks */
           tr {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          
-          /* Distribusi Lebar Kolom Tabel & Ukuran Font Efisien */
           .spreadsheet-table th, .spreadsheet-table td {
             padding: 6px !important;
             font-size: 10pt !important;
             line-height: 1.3 !important;
             vertical-align: top !important;
-            word-break: break-word !important; /* Potong teks panjang ke bawah (wrap) */
-            border: 1px solid #000000 !important; /* Pastikan garis tabel tetap tercetak jelas */
+            word-break: break-word !important;
+            border: 1px solid #000000 !important;
           }
           
-          /* Aturan Proporsi Kolom Lembar Kunci & Kisi-Kisi */
-          .spreadsheet-table th:nth-child(1), .spreadsheet-table td:nth-child(1) { width: 7% !important; }  /* No */
-          .spreadsheet-table th:nth-child(2), .spreadsheet-table td:nth-child(2) { width: 15% !important; } /* No Soal / Elemen */
+          /* PROPORSI PRESISI DATA KISI-KISI: CP diperlebar, Indikator diperkecil */
+          .spreadsheet-table th:nth-child(1), .spreadsheet-table td:nth-child(1) { width: 6% !important; }   /* No */
+          .spreadsheet-table th:nth-child(2), .spreadsheet-table td:nth-child(2) { width: 48% !important; }  /* CP / TP (Perlebar) */
+          .spreadsheet-table th:nth-child(3), .spreadsheet-table td:nth-child(3) { width: 26% !important; }  /* Indikator Soal (Perkecil) */
+          .spreadsheet-table th:nth-child(4), .spreadsheet-table td:nth-child(4) { width: 10% !important; }  /* Level */
+          .spreadsheet-table th:nth-child(5), .spreadsheet-table td:nth-child(5) { width: 10% !important; }  /* Bentuk */
           
-          /* Atasi pembungkus responsif bawaan Tailwind */
           .overflow-x-auto {
             overflow: visible !important;
             max-width: 100% !important;
           }
           
-          /* Khusus untuk halaman evaluasi/soal biasa */
+          /* Optimasi Lembar Soal: Izinkan mengalir padat tanpa membuang ruang bawah halaman */
           .question-item {
+            page-break-inside: auto !important; 
+            break-inside: auto !important;
+          }
+          
+          /* Pertahankan keutuhan per-blok soal (nomor, teks, opsi) agar tidak terpisah jelek */
+          .break-inside-avoid {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            margin-bottom: 12pt !important;
+            margin-bottom: 14pt !important;
           }
           
           p, span, td, th, div {
@@ -430,7 +430,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
               const isAbove = q.text?.toLowerCase()?.includes('di atas') || false;    
               
               return (
-                <div key={q.number} className="space-y-4 break-inside-avoid border-b border-slate-50 pb-6">
+                <div key={q.number} className="break-inside-avoid border-b border-slate-50 pb-6 space-y-4">
                   {q.stimulus && (
                     <div className="bg-slate-50 p-6 rounded-xl border-2 border-slate-200 mb-4 text-justify italic shadow-inner print:bg-white print:p-4 print:border-slate-300">
                       <p className="text-xs font-bold text-slate-400 uppercase mb-2 print:text-black">Stimulus Bacaan / Literasi</p>
@@ -615,11 +615,11 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
               <table className="spreadsheet-table w-full">
                 <thead>
                   <tr>
-                    <th className="w-12">No</th>
-                    <th className="min-w-[200px]">CP / TUJUAN PEMBELAJARAN</th>
+                    <th className="text-center">No</th>
+                    <th>Capaian & Tujuan Pembelajaran</th>
                     <th>Indikator Soal</th>
-                    <th className="w-24 text-center">Level</th>
-                    <th className="w-24 text-center">Bentuk</th>
+                    <th className="text-center">Level</th>
+                    <th className="text-center">Bentuk</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -628,16 +628,16 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                       <td className="text-center font-bold font-mono">{item.no}</td>
                       <td className="text-xs leading-relaxed">
                         <div className="font-bold mb-1">CP:</div>
-                        <p className="mb-2 italic">{formInput.cp}</p>
+                        <p className="mb-2 italic text-slate-700 print:text-black">{formInput.cp}</p>
                         <div className="font-bold mb-1">TP:</div>
-                        <p>{item.tp}</p>
+                        <p className="text-slate-800 print:text-black">{item.tp}</p>
                       </td>
-                      <td className="text-xs italic">{item.indikatorSoal}</td>
+                      <td className="text-xs italic text-slate-700 print:text-black">{item.indikatorSoal}</td>
                       <td className="text-center">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">{item.levelKognitif}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 print:bg-transparent print:border-none print:text-black">{item.levelKognitif}</span>
                       </td>
                       <td className="text-center">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">{item.bentukSoal}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 print:bg-transparent print:border-none print:text-black">{item.bentukSoal}</span>
                       </td>
                     </tr>
                   ))}
