@@ -54,7 +54,7 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">SISTA</h1>
             <p className="text-citrus-700 font-medium tracking-tight">Sistem Asesmen Pintar</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">By FIDHAL TOUNA AI</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">GENERATOR</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -66,7 +66,7 @@ export default function Login({ onLogin }: LoginProps) {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Admin"
+                  placeholder="Masukkan Username"
                   className="w-full bg-white/50 border border-citrus-200 rounded-2xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-citrus-500 focus:border-transparent outline-none transition-all placeholder:text-citrus-300"
                   required
                 />
@@ -81,7 +81,7 @@ export default function Login({ onLogin }: LoginProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Masukkan Password"
                   className="w-full bg-white/50 border border-citrus-200 rounded-2xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-citrus-500 focus:border-transparent outline-none transition-all placeholder:text-citrus-300"
                   required
                 />
@@ -114,14 +114,14 @@ export default function Login({ onLogin }: LoginProps) {
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  Masuk Ke Dashboard AI
+                  Login
                 </>
               )}
             </button>
           </form>
 
           <p className="mt-8 text-center text-[10px] text-slate-400 font-bold tracking-widest uppercase italic">
-            Kurikulum Merdeka • Penilaian Otomatis
+            BY FIDHAL TOUNA AI
           </p>
         </div>
       </motion.div>
