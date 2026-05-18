@@ -175,7 +175,15 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
             <tr>
               <td class="centered">${q.number}</td>
               <td class="centered">${q.type}</td>
-              <td><b>KUNCI: ${q.answerKey}</b><br><i>Bahasan: ${q.explanation}</i><br><small>Level: ${q.cognitiveLevel}</small></td>
+              <td>
+                <b>KUNCI: ${
+                  typeof q.answerKey === 'object' && q.answerKey !== null
+                    ? Object.entries(q.answerKey).map(([key, val]) => `${key}: ${val}`).join(', ')
+                    : q.answerKey || '-'
+                }</b>
+                <br><i>Bahasan: ${q.explanation || '-'}</i>
+                <br><small>Level: ${q.cognitiveLevel || 'MOTS'}</small>
+              </td>
             </tr>
           `).join('')}
         </table>
@@ -578,7 +586,13 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                       <div className="space-y-2">
                         <div className="flex items-start gap-2">
                           <span className="text-xs font-bold bg-citrus-500 text-white px-2 py-0.5 rounded">KUNCI</span>
-                          <p className="font-bold text-citrus-900">{q.answerKey}</p>
+                          <p className="font-bold text-citrus-900">
+                            {typeof q.answerKey === 'object' && q.answerKey !== null
+                              ? Object.entries(q.answerKey)
+                                  .map(([key, val]) => `${key}: ${val}`)
+                                  .join(', ')
+                              : String(q.answerKey || '-')}
+                          </p>
                         </div>
                         <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
                           <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase whitespace-nowrap">Bahasan:</span>
