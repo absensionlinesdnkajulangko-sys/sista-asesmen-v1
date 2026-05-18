@@ -26,16 +26,14 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
   const generateImage = async (questionNumber: number, stimulus: string) => {
     setIsGeneratingImage(prev => ({ ...prev, [questionNumber]: true }));
     try {
-      // Using Pollinations.ai for live browser-side generation as a professional prototype solution
       const prompt = encodeURIComponent(stimulus + ", education style, flat illustration, clean vector, white background");
       const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=450&nologo=true&seed=${Math.floor(Math.random() * 1000)}`;
       
-      // We "load" the image to simulate generation time and ensure it exists
       const img = new Image();
       img.src = imageUrl;
       await new Promise((resolve) => {
         img.onload = resolve;
-        img.onerror = resolve; // Continue even if error to show the placeholder
+        img.onerror = resolve;
       });
 
       setGeneratedImages(prev => ({ ...prev, [questionNumber]: imageUrl }));
@@ -56,7 +54,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
   const downloadWord = () => {
     if (!containerRef.current) return;
     
-    // Create pre-styled HTML for Word
     const preHtml = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
       <head>
@@ -88,10 +85,8 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
       <body>`;
     const postHtml = "</body></html>";
     
-    // Build content manually to ensure Word-friendly structure
     let contentHtml = '<div style="width: 100%;">';
 
-    // Header
     contentHtml += `
       <div class="centered">
         <h2 class="uppercase font-bold" style="margin-bottom: 5pt;">${getHeaderText()}</h2>
@@ -100,7 +95,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
       <div style="border-bottom: 2pt double black; height: 1pt; margin-bottom: 15pt; width: 100%;"></div>
     `;
 
-    // Identity Table
     contentHtml += `
       <table class="identity-table">
         <tr>
@@ -142,7 +136,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
         contentHtml += `<td class="q-num"><b>${q.number}.</b></td>`;
         contentHtml += `<td class="q-text">${q.text}</td></tr></table>`;
 
-        // Options
         if (q.type === 'Pilihan Ganda' && q.options) {
           contentHtml += `<table class="options-table">`;
           q.options.forEach((opt, i) => {
@@ -204,7 +197,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
       `;
     }
 
-    // Signatures
     if (activeTab !== 'soal') {
       contentHtml += `
         <table class="signature-table">
@@ -256,6 +248,50 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
+      {/* STYLE CSS KHUSUS UNTUK FIX PRINT LAYOUT YANG TERPOTONG */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: portrait;
+            margin: 1.5cm !important;
+          }
+          .no-print, 
+          button, 
+          header, 
+          nav, 
+          aside, 
+          footer,
+          .sticky { 
+            display: none !important; 
+          }
+          body, main, #root {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+          }
+          /* Paksa container cetak menggunakan lebar kertas penuh */
+          div[ref], .bg-white {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          /* Hindari pemotongan baris di tengah halaman */
+          .break-inside-avoid, tr, table {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          p, span, td, th, div {
+            color: black !important;
+          }
+        }
+      `}} />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-md p-4 rounded-[1.5rem] border border-citrus-100 sticky top-4 z-40 shadow-xl shadow-citrus-900/5">
         <button
           onClick={onBack}
@@ -309,13 +345,11 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
       </div>
 
       <div ref={containerRef} className="bg-white p-8 md:p-12 shadow-2xl border border-slate-200 min-h-[1000px]">
-        {/* Header Sekolah */}
         <div className="text-center border-b-4 border-double border-black pb-4 mb-4">
           <h1 className="text-2xl font-bold uppercase tracking-wide">{getHeaderText()}</h1>
           <p className="text-sm font-medium mt-1">TAHUN AJARAN {formInput.academicYear}</p>
         </div>
 
-        {/* Identitas Detail */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 mb-8 text-[10px] md:text-xs border border-black p-4">
           <div className="space-y-1">
             <p><span className="font-bold w-32 inline-block uppercase">Satuan Pendidikan</span>: {formInput.schoolName}</p>
@@ -340,14 +374,13 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
               const imageUrl = q.imageUrl || '';
               const stimulusForImage = imageUrl.startsWith('IMAGE_STIMULUS:') 
                 ? imageUrl.replace('IMAGE_STIMULUS:', '') 
-                : q.text; // Fallback to question text if no stimulus provided
+                : q.text;
               
               const isBeside = q.text?.toLowerCase()?.includes('di samping') || false;
               const isAbove = q.text?.toLowerCase()?.includes('di atas') || false;    
               
               return (
                 <div key={q.number} className="space-y-4 break-inside-avoid border-b border-slate-50 pb-6">
-                  {/* Stimulus Section */}
                   {q.stimulus && (
                     <div className="bg-slate-50 p-6 rounded-xl border-2 border-slate-200 mb-4 text-justify italic shadow-inner print:bg-white print:p-4 print:border-slate-300">
                       <p className="text-xs font-bold text-slate-400 uppercase mb-2 print:text-black">Stimulus Bacaan / Literasi</p>
@@ -355,7 +388,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                     </div>
                   )}
                   
-                  {/* Image Generation / Display */}
                   <div className="flex flex-col gap-4">
                     {generatedImages[q.number] ? (
                       <div className={cn(
@@ -431,12 +463,11 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                         {q.multiOptions.map((opt, i) => (
                           <div key={i} className="flex gap-3 items-center">
                             <div className="w-5 h-5 border-2 border-slate-400 rounded flex items-center justify-center text-[10px] font-bold text-slate-300">
-                              {/* Empty box for student */}
                             </div>
                             <span className="text-slate-800">{opt.text}</span>
                           </div>
                         ))}
-                        <p className="text-[10px] text-citrus-600 font-bold italic mt-1 uppercase tracking-tight">
+                        <p className="text-[10px] text-citrus-600 font-bold italic mt-1 uppercase tracking-tight no-print">
                           * Beri tanda centang (✓) pada kotak untuk jawaban yang benar (bisa lebih dari satu)
                         </p>
                       </div>
@@ -455,7 +486,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                             {q.matchingPairs.map((pair, i) => (
                               <tr key={i}>
                                 <td className="border-2 border-slate-200 p-3 text-sm">{pair.prompt}</td>
-                                <td className="border-2 border-slate-200 p-3 text-sm">{/* Empty for student to fill */}</td>
+                                <td className="border-2 border-slate-200 p-3 text-sm"></td>
                               </tr>
                             ))}
                           </tbody>
@@ -575,7 +606,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           </div>
         )}
 
-        {/* Signatures - Hidden on Soal sheet */}
         {activeTab !== 'soal' && (
           <table className="signature-table mt-20 no-border w-full">
             <tbody>
