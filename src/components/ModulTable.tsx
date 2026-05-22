@@ -1,10 +1,10 @@
-import { Download, ChevronLeft, FileText, DownloadCloud, ClipboardCheck, Key, Printer } from 'lucide-react';
+import { Download, ChevronLeft, FileText, DownloadCloud, ClipboardCheck, Key, Printer, RefreshCw, Trash2 } from 'lucide-react';
 import { GeneratedSoal, SoalFormData } from '../types';
 import { NavItem } from './Sidebar';
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { generateKunciOnly, generateKisiOnly } from '../lib/gemini'; // Import fungsi baru
+import { generateKunciOnly, generateKisiOnly } from '../lib/gemini';
 
 interface ModulTableProps {
   data: GeneratedSoal;
@@ -20,7 +20,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
   const [generatedImages, setGeneratedImages] = useState<Record<number, string>>({});
   const [isGeneratingImage, setIsGeneratingImage] = useState<Record<number, boolean>>({});
   
-  // State manajemen data internal untuk mendukung penambahan Kunci & Kisi secara dinamis
   const [localQuestions, setLocalQuestions] = useState(data?.questions || []);
   const [localKisiKisi, setLocalKisiKisi] = useState(data?.kisiKisi || []);
   const [isTabLoading, setIsTabLoading] = useState(false);
@@ -29,12 +28,10 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     window.print();
   };
 
-  // Fungsi interseptor pemindahan Tab sekaligus pemicu On-Demand AI Generator
   const handleTabChange = async (tab: 'soal' | 'kunci' | 'kisi') => {
     setActiveTab(tab);
 
     if (tab === 'kunci') {
-      // Cek apakah kunci jawaban masih kosong (ditandai dengan answerKey berupa string kosong atau strip)
       const belumAdaKunci = localQuestions.every(q => q.answerKey === "" || q.answerKey === "-");
       if (belumAdaKunci) {
         setIsTabLoading(true);
@@ -50,7 +47,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     }
 
     if (tab === 'kisi') {
-      // Cek apakah data kisi-kisi masih kosong kosong
       if (localKisiKisi.length === 0) {
         setIsTabLoading(true);
         try {
@@ -65,11 +61,22 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     }
   };
 
-  const generateImage = async (questionNumber: number, stimulus: string) => {
+  const generateImage = async (questionNumber: number, questionObject: any) => {
     setIsGeneratingImage(prev => ({ ...prev, [questionNumber]: true }));
     try {
-      const prompt = encodeURIComponent(stimulus + ", education style, flat illustration, clean vector, white background");
-      const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=800&height=450&nologo=true&seed=${Math.floor(Math.random() * 1000)}`;
+      let basePrompt = questionObject.imagePrompt || questionObject.stimulus || questionObject.text;
+      
+      basePrompt = basePrompt
+        .replace(/Murid melihat/gi, '')
+        .replace(/Bapak\/Ibu Guru menunjukkan/gi, '')
+        .replace(/Perhatikan gambar/gi, '')
+        .replace(/di bawah ini/gi, '')
+        .replace(/dengan teliti/gi, '');
+
+      const fullPrompt = `${basePrompt.trim()}, clip art style for elementary school textbook, vibrant colors, clear object, isolated on a solid white background, no text, no characters, 2d vector`;
+      const encodedPrompt = encodeURIComponent(fullPrompt);
+      
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=450&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
       
       const img = new Image();
       img.src = imageUrl;
@@ -82,6 +89,14 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     } finally {
       setIsGeneratingImage(prev => ({ ...prev, [questionNumber]: false }));
     }
+  };
+  
+  const handleRemoveImage = (questionNumber: number) => {
+    setGeneratedImages(prev => {
+      const updated = { ...prev };
+      delete updated[questionNumber];
+      return updated;
+    });
   };
 
   const getHeaderText = () => {
@@ -121,8 +136,8 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     const postHtml = "</body></html>";
     
     let contentHtml = '<div style="width: 100%;">';
-    contentHtml += `<div class="centered"><h2 class="uppercase font-bold" style="margin-bottom: 5pt;">${getHeaderText()}</h2><p class="font-bold" style="margin-top: 0;">TAHUN AJARAN ${formInput.academicYear}</p></div><div style="border-bottom: 2pt double black; height: 1pt; margin-bottom: 15pt; width: 100%;"></div>`;
-    contentHtml += `<table class="identity-table"><tr><td width="50%"><b>SATUAN PENDIDIKAN</b>: ${formInput.schoolName}<br><b>MATA PELAJARAN</b>: ${formInput.subject}<br><b>KELAS / SEMESTER</b>: ${formInput.grade} / ${formInput.semester}<br>${(activeTab !== 'soal' || (mode !== 'sts' && mode !== 'sas')) ? `<b>MATERI POKOK</b>: ${currentMaterial}` : ''}</td><td><b>NAMA GURU</b>: ${formInput.teacherName}<br><b>NIP GURU</b>: ${formInput.teacherNip}<br><b>JABATAN</b>: ${formInput.position}<br><b>ALOKASI WAKTU</b>: ${formInput.timeAllocation || data?.header?.timeLimit || '60 Menit'}</td></tr></table>`;
+    contentHtml += `<div class="centered"><h2 class="uppercase font-bold" style="margin-bottom: 5pt;">LEMBAR ASESMEN KURIKULUM MERDEKA</h2><p class="font-bold" style="margin-top: 0;">TAHUN AJARAN ${formInput.academicYear}</p></div><div style="border-bottom: 2pt double black; height: 1pt; margin-bottom: 15pt; width: 100%;"></div>`;
+    contentHtml += `<table class="identity-table"><tr><td width="50%"><b>SATUAN PENDIDIKAN</b>: ${formInput.schoolName}<br><b>MATA PELAJARAN</b>: ${formInput.subject}<br><b>KELAS / SEMESTER</b>: ${formInput.grade} / ${formInput.semester}<br><b>MATERI POKOK</b>: ${currentMaterial}</td><td><b>NAMA GURU</b>: ${formInput.teacherName}<br><b>NIP GURU</b>: ${formInput.teacherNip}<br><b>JABATAN</b>: ${formInput.position}<br><b>ALOKASI WAKTU</b>: ${formInput.timeAllocation || data?.header?.timeLimit || '60 Menit'}</td></tr></table>`;
 
     if (activeTab === 'soal') {
       contentHtml += `<p style="font-style: italic; border-bottom: 1px solid #ccc; padding-bottom: 5pt; margin-bottom: 15pt;">Petunjuk: Kerjakanlah soal-soal di bawah ini dengan jujur dan teliti!</p>`;
@@ -153,7 +168,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
         contentHtml += `</div><br>`;
       }
     } else if (activeTab === 'kunci') {
-      // PERBAIKAN Word Lembar Kunci: Kolom skor kanan dihapus, Rubrik disatukan di bawah kunci
       contentHtml += `<table class="spreadsheet-table"><tr><th width="40">No</th><th>Kunci Jawaban & Rubrik Penilaian</th></tr>${localQuestions.map(q => `<tr><td class="centered">${q.number}</td><td><b>KUNCI JAWABAN: ${formatAnswerKey(q.answerKey)}</b><br><br><b>RUBRIK PENILAIAN:</b><br><i>${(q as any).score || (q as any).rubrik || 'Skor 1 jika benar, 0 jika salah.'}</i><br><br><small>Level Kognitif: ${q.cognitiveLevel || 'MOTS'}</small></td></tr>`).join('')}</table>`;
     } else if (activeTab === 'kisi') {
       contentHtml += `<table class="spreadsheet-table"><tr><th>No</th><th>Capaian & Tujuan Pembelajaran</th><th>Indikator</th><th>Level</th><th>Bentuk</th></tr>${localKisiKisi.map(k => `<tr><td class="centered">${k.no}</td><td><b>CP:</b> ${formInput.cp}<br><b>TP:</b> ${k.tp || '-'}</td><td>${k.indikatorSoal}</td><td class="centered">${k.levelKognitif}</td><td class="centered">${k.bentukSoal}</td></tr>`).join('')}</table>`;
@@ -190,7 +204,32 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
-      <style dangerouslySetInnerHTML={{ __html: `@media print { .no-print, button, header, nav, aside, footer, .sticky { display: none !important; } body, main, #root { background: white !important; padding: 0 !important; margin: 0 !important; width: 100% !important; } .print-container { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; } table, .spreadsheet-table { width: 100% !important; border-collapse: collapse !important; } .spreadsheet-table th, .spreadsheet-table td { border: 1px solid #000000 !important; padding: 6px !important; font-size: 10pt !important; } .no-wrap-print { white-space: nowrap !important; } }`}} />
+      {/* PERBAIKAN CSS PRINT:
+        - Menggunakan border hanya pada kotak utama
+        - Tabel di dalam tabel (.inner-table) TIDAK diberikan border agar bersih
+      */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print { 
+          .no-print, button, header, nav, aside, footer, .sticky { display: none !important; } 
+          body, main, #root { background: white !important; padding: 0 !important; margin: 0 !important; width: 100% !important; } 
+          .print-container { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; } 
+          table, .spreadsheet-table { width: 100% !important; border-collapse: collapse !important; } 
+          .spreadsheet-table th, .spreadsheet-table td { border: 1px solid #000000 !important; padding: 6px !important; font-size: 10pt !important; } 
+          .print-only-header { display: block !important; } 
+          .screen-only-header { display: none !important; } 
+          
+          /* KOTAK IDENTITAS LUAR */
+          .print-identity-table { display: table !important; width: 100% !important; border: 1px solid #000 !important; border-collapse: collapse !important; font-size: 10pt !important; } 
+          .print-identity-table > tbody > tr > td { border: 1px solid #000 !important; padding: 6px !important; width: 50% !important; vertical-align: top !important; } 
+          
+          /* TABEL DI DALAM TABEL (Merapikan Titik Dua) */
+          .inner-table { width: 100% !important; border: none !important; margin: 0 !important; }
+          .inner-table tr td { border: none !important; padding: 2px 4px 2px 0 !important; vertical-align: top !important; }
+          
+          .screen-identity-grid { display: none !important; } 
+        } 
+        .print-only-header, .print-identity-table { display: none; }
+      `}} />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print bg-white/80 backdrop-blur-md p-4 rounded-[1.5rem] border border-citrus-100 sticky top-4 z-40 shadow-xl shadow-citrus-900/5">
         <button onClick={onBack} className="flex items-center gap-2 text-citrus-700 font-bold hover:text-citrus-900 transition-colors px-4 py-2">
@@ -232,33 +271,63 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
         )}
 
         <div className="text-center border-b-4 border-double border-black pb-4 mb-4">
-          <h1 className="text-2xl font-bold uppercase tracking-wide">{getHeaderText()}</h1>
+          <h1 className="text-2xl font-bold uppercase tracking-wide screen-only-header">{getHeaderText()}</h1>
+          <h1 className="text-2xl font-bold uppercase tracking-wide print-only-header">LEMBAR ASESMEN KURIKULUM MERDEKA</h1>
           <p className="text-sm font-medium mt-1">TAHUN AJARAN {formInput.academicYear}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 mb-8 text-[10px] md:text-xs border border-black p-4">
-          <div className="space-y-1">
-            <p><span className="font-bold w-32 inline-block uppercase">Satuan Pendidikan</span>: {formInput.schoolName}</p>
-            <p><span className="font-bold w-32 inline-block uppercase">Mata Pelajaran</span>: {formInput.subject}</p>
-            <p><span className="font-bold w-32 inline-block uppercase">Kelas / Semester</span>: {formInput.grade} / {formInput.semester}</p>
-            {(activeTab !== 'soal' || (mode !== 'sts' && mode !== 'sas')) && (
-              <p><span className="font-bold w-32 inline-block uppercase">Materi Pokok</span>: {currentMaterial}</p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <p><span className="font-bold w-32 inline-block uppercase">Nama Guru</span>: {formInput.teacherName}</p>
-            <p><span className="font-bold w-32 inline-block uppercase">NIP Guru</span>: {formInput.teacherNip}</p>
-            <p><span className="font-bold w-32 inline-block uppercase">Jabatan</span>: {formInput.position}</p>
-            <p><span className="font-bold w-32 inline-block uppercase">Alokasi Waktu</span>: {formInput.timeAllocation || data?.header?.timeLimit || '60 Menit'}</p>
-          </div>
+        {/* 1. Tampilan Monitor: Menggunakan Tabel Dalam Tabel agar LURUS SEMPURNA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 mb-8 text-[10px] md:text-xs border border-black p-4 screen-identity-grid">
+          <table className="w-full text-left border-none">
+            <tbody>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[140px] py-0.5">Satuan Pendidikan</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.schoolName}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[140px] py-0.5">Mata Pelajaran</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.subject}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[140px] py-0.5">Kelas / Semester</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.grade} / {formInput.semester}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[140px] py-0.5">Materi Pokok</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{currentMaterial}</td></tr>
+            </tbody>
+          </table>
+          <table className="w-full text-left border-none">
+            <tbody>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[100px] py-0.5">Nama Guru</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.teacherName}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[100px] py-0.5">NIP Guru</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.teacherNip}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[100px] py-0.5">Jabatan</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.position}</td></tr>
+              <tr><td className="font-bold uppercase whitespace-nowrap w-[100px] py-0.5">Alokasi Waktu</td><td className="w-3 font-bold py-0.5">:</td><td className="py-0.5">{formInput.timeAllocation || data?.header?.timeLimit || '60 Menit'}</td></tr>
+            </tbody>
+          </table>
         </div>
+
+        {/* 2. Tampilan Cetak Fisik: Menggunakan Tabel Dalam Tabel agar LURUS SEMPURNA */}
+        <table className="print-identity-table mb-8">
+          <tbody>
+            <tr>
+              <td>
+                <table className="inner-table text-[10px]">
+                  <tbody>
+                    <tr><td className="font-bold whitespace-nowrap w-[140px]">SATUAN PENDIDIKAN</td><td className="font-bold w-3">:</td><td>{formInput.schoolName}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[140px]">MATA PELAJARAN</td><td className="font-bold w-3">:</td><td>{formInput.subject}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[140px]">KELAS / SEMESTER</td><td className="font-bold w-3">:</td><td>{formInput.grade} / {formInput.semester}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[140px]">MATERI POKOK</td><td className="font-bold w-3">:</td><td>{currentMaterial}</td></tr>
+                  </tbody>
+                </table>
+              </td>
+              <td>
+                <table className="inner-table text-[10px]">
+                  <tbody>
+                    <tr><td className="font-bold whitespace-nowrap w-[100px]">NAMA GURU</td><td className="font-bold w-3">:</td><td>{formInput.teacherName}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[100px]">NIP GURU</td><td className="font-bold w-3">:</td><td>{formInput.teacherNip}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[100px]">JABATAN</td><td className="font-bold w-3">:</td><td>{formInput.position}</td></tr>
+                    <tr><td className="font-bold whitespace-nowrap w-[100px]">ALOKASI WAKTU</td><td className="font-bold w-3">:</td><td>{formInput.timeAllocation || data?.header?.timeLimit || '60 Menit'}</td></tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         {activeTab === 'soal' && (
           <div className="space-y-8">
             <p className="font-bold border-b border-gray-200 pb-2 italic">Petunjuk: Kerjakanlah soal-soal di bawah ini dengan jujur dan teliti!</p>
             {localQuestions.map((q) => {
-              const imageUrl = q.imageUrl || '';
-              const stimulusForImage = imageUrl.startsWith('IMAGE_STIMULUS:') ? imageUrl.replace('IMAGE_STIMULUS:', '') : q.text;
               const isAbove = q.text?.toLowerCase()?.includes('di atas') || false;    
               
               return (
@@ -272,10 +341,28 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                     {generatedImages[q.number] ? (
                       <div className={cn("relative group", isAbove ? "w-full max-w-2xl mx-auto" : "max-w-sm")}>
                         <img src={generatedImages[q.number]} className="w-full h-auto rounded-xl border" referrerPolicy="no-referrer" />
+                        
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity no-print bg-slate-900/60 backdrop-blur-sm p-1.5 rounded-xl">
+                          <button 
+                            onClick={() => generateImage(q.number, q)} 
+                            disabled={isGeneratingImage[q.number]}
+                            title="Ganti/Regenerate Gambar"
+                            className="p-1.5 bg-white text-citrus-600 hover:bg-citrus-50 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <RefreshCw className={cn("w-4 h-4", isGeneratingImage[q.number] && "animate-spin")} />
+                          </button>
+                          <button 
+                            onClick={() => handleRemoveImage(q.number)}
+                            title="Hapus Gambar"
+                            className="p-1.5 bg-white text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="no-print">
-                        <button onClick={() => generateImage(q.number, stimulusForImage)} disabled={isGeneratingImage[q.number]} className="gradient-citrus text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <button onClick={() => generateImage(q.number, q)} disabled={isGeneratingImage[q.number]} className="gradient-citrus text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
                           <DownloadCloud className="w-4 h-4" /> {isGeneratingImage[q.number] ? 'Memproses Gambar...' : 'Generate Stimulus Visual'}
                         </button>
                       </div>
@@ -328,7 +415,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           <div className="space-y-8">
             <h3 className="text-lg font-bold border-b-2 border-citrus-200 pb-2 text-citrus-800 uppercase tracking-tighter">Kunci Jawaban & Rubrik Penilaian</h3>
             <table className="spreadsheet-table w-full">
-              {/* PERBAIKAN TOTAL: Header disesuaikan, kolom skor kanan dihapus penuh */}
               <thead>
                 <tr>
                   <th className="w-16 text-center">No</th>
@@ -384,7 +470,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                       <td className="text-xs leading-relaxed"><b>CP:</b> <p className="mb-2 italic text-slate-700">{formInput.cp}</p><b>TP:</b> <p className="text-slate-800">{item.tp}</p></td>
                       <td className="text-xs italic text-slate-700">{item.indikatorSoal}</td>
                       <td className="text-center"><span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border">{item.levelKognitif}</span></td>
-                      <td className="text-center w-32 whitespace-nowrap no-wrap-print">
+                      <td className="text-center w-32 whitespace-nowrap">
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border inline-block whitespace-nowrap">
                           {item.bentukSoal}
                         </span>
