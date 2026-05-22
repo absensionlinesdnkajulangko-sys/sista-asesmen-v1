@@ -1,4 +1,4 @@
-import { Download, ChevronLeft, FileText, DownloadCloud, ClipboardCheck, Key, Printer, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, ChevronLeft, FileText, DownloadCloud, ClipboardCheck, Key, Printer, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
 import { GeneratedSoal, SoalFormData } from '../types';
 import { NavItem } from './Sidebar';
 import { useRef, useState } from 'react';
@@ -18,7 +18,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [activeTab, setActiveTab] = useState<'soal' | 'kunci' | 'kisi'>('soal');
   const [generatedImages, setGeneratedImages] = useState<Record<number, string>>({});
-  const [isGeneratingImage, setIsGeneratingImage] = useState<Record<number, boolean>>({});
   
   const [localQuestions, setLocalQuestions] = useState(data?.questions || []);
   const [localKisiKisi, setLocalKisiKisi] = useState(data?.kisiKisi || []);
@@ -61,33 +60,34 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
     }
   };
 
-  const generateImage = async (questionNumber: number, questionObject: any) => {
-    setIsGeneratingImage(prev => ({ ...prev, [questionNumber]: true }));
+  // PERBAIKAN: Hanya mengambil esensi pertanyaan soal tanpa menyertakan kunci jawaban/opsi pilihan
+  const handleChatGPTRedirect = async (questionObject: any) => {
+    let basePrompt = questionObject.text || "";
+    
+    // Pembersihan teks instruksi lembar ujian agar ChatGPT fokus pada objek visual yang diminta
+    basePrompt = basePrompt
+      .replace(/Murid melihat/gi, '')
+      .replace(/Bapak\/Ibu Guru menunjukkan/gi, '')
+      .replace(/Perhatikan gambar/gi, '')
+      .replace(/di bawah ini/gi, '')
+      .replace(/dengan teliti/gi, '');
+
+    const fullPrompt = `Buatkan gambar ilustrasi pendukung untuk pertanyaan ujian sekolah dasar berikut ini. Spesifikasi gambar:\n- Gaya visual: 2D vector clip art buku pelajaran anak\n- Warna: Cerah, bersih, dan menarik\n- Background: Putih polos (solid white background)\n- PENTING: JANGAN ada teks, tulisan, huruf, kata, atau angka sama sekali di dalam gambar.\n\nEsensi konteks dari pertanyaan soal yang harus digambar: ${basePrompt.trim()}`;
+    
     try {
-      let basePrompt = questionObject.imagePrompt || questionObject.stimulus || questionObject.text;
-      
-      basePrompt = basePrompt
-        .replace(/Murid melihat/gi, '')
-        .replace(/Bapak\/Ibu Guru menunjukkan/gi, '')
-        .replace(/Perhatikan gambar/gi, '')
-        .replace(/di bawah ini/gi, '')
-        .replace(/dengan teliti/gi, '');
+      await navigator.clipboard.writeText(fullPrompt);
+      alert("✅ PROMPT PERTANYAAN BERHASIL DISALIN!\n\nSISTA akan membuka ChatGPT. Silakan gunakan kombinasi tombol Ctrl+V (Paste) di kolom chat untuk memicu pembuatan gambar.");
+      window.open('https://chatgpt.com/', '_blank');
+    } catch (err) {
+      alert("Gagal menyalin otomatis. Silakan salin teks prompt ini secara manual:\n\n" + fullPrompt);
+      window.open('https://chatgpt.com/', '_blank');
+    }
+  };
 
-      const fullPrompt = `${basePrompt.trim()}, clip art style for elementary school textbook, vibrant colors, clear object, isolated on a solid white background, no text, no characters, 2d vector`;
-      const encodedPrompt = encodeURIComponent(fullPrompt);
-      
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=450&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
-      
-      const img = new Image();
-      img.src = imageUrl;
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-
-      setGeneratedImages(prev => ({ ...prev, [questionNumber]: imageUrl }));
-    } finally {
-      setIsGeneratingImage(prev => ({ ...prev, [questionNumber]: false }));
+  const handlePasteImageUrl = (questionNumber: number) => {
+    const url = window.prompt("Tempel (Paste) URL Link gambar dari ChatGPT di sini untuk menampilkannya di lembar soal:");
+    if (url && url.trim() !== "") {
+      setGeneratedImages(prev => ({ ...prev, [questionNumber]: url.trim() }));
     }
   };
   
@@ -204,10 +204,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-32">
-      {/* PERBAIKAN CSS PRINT:
-        - Menggunakan border hanya pada kotak utama
-        - Tabel di dalam tabel (.inner-table) TIDAK diberikan border agar bersih
-      */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print { 
           .no-print, button, header, nav, aside, footer, .sticky { display: none !important; } 
@@ -222,7 +218,7 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           .print-identity-table { display: table !important; width: 100% !important; border: 1px solid #000 !important; border-collapse: collapse !important; font-size: 10pt !important; } 
           .print-identity-table > tbody > tr > td { border: 1px solid #000 !important; padding: 6px !important; width: 50% !important; vertical-align: top !important; } 
           
-          /* TABEL DI DALAM TABEL (Merapikan Titik Dua) */
+          /* TABEL DI DALAM TABEL */
           .inner-table { width: 100% !important; border: none !important; margin: 0 !important; }
           .inner-table tr td { border: none !important; padding: 2px 4px 2px 0 !important; vertical-align: top !important; }
           
@@ -276,7 +272,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           <p className="text-sm font-medium mt-1">TAHUN AJARAN {formInput.academicYear}</p>
         </div>
 
-        {/* 1. Tampilan Monitor: Menggunakan Tabel Dalam Tabel agar LURUS SEMPURNA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-1 mb-8 text-[10px] md:text-xs border border-black p-4 screen-identity-grid">
           <table className="w-full text-left border-none">
             <tbody>
@@ -296,7 +291,6 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
           </table>
         </div>
 
-        {/* 2. Tampilan Cetak Fisik: Menggunakan Tabel Dalam Tabel agar LURUS SEMPURNA */}
         <table className="print-identity-table mb-8">
           <tbody>
             <tr>
@@ -338,35 +332,47 @@ export default function ModulTable({ data, formInput, onBack, mode }: ModulTable
                     </div>
                   )}
                   <div className="flex flex-col gap-4">
-                    {generatedImages[q.number] ? (
-                      <div className={cn("relative group", isAbove ? "w-full max-w-2xl mx-auto" : "max-w-sm")}>
-                        <img src={generatedImages[q.number]} className="w-full h-auto rounded-xl border" referrerPolicy="no-referrer" />
-                        
-                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity no-print bg-slate-900/60 backdrop-blur-sm p-1.5 rounded-xl">
+                    
+                    {q.imagePrompt && (
+                      generatedImages[q.number] ? (
+                        <div className={cn("relative group", isAbove ? "w-full max-w-2xl mx-auto" : "max-w-sm")}>
+                          <img src={generatedImages[q.number]} className="w-full h-auto rounded-xl border" referrerPolicy="no-referrer" />
+                          
+                          <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity no-print bg-slate-900/60 backdrop-blur-sm p-1.5 rounded-xl">
+                            <button 
+                              onClick={() => handlePasteImageUrl(q.number)} 
+                              title="Ganti Gambar Baru"
+                              className="p-1.5 bg-white text-citrus-600 hover:bg-citrus-50 rounded-lg transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleRemoveImage(q.number)}
+                              title="Hapus Gambar"
+                              className="p-1.5 bg-white text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="no-print flex gap-3">
                           <button 
-                            onClick={() => generateImage(q.number, q)} 
-                            disabled={isGeneratingImage[q.number]}
-                            title="Ganti/Regenerate Gambar"
-                            className="p-1.5 bg-white text-citrus-600 hover:bg-citrus-50 rounded-lg transition-colors disabled:opacity-50"
+                            onClick={() => handleChatGPTRedirect(q)} 
+                            className="gradient-citrus text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm hover:shadow-md transition-all"
                           >
-                            <RefreshCw className={cn("w-4 h-4", isGeneratingImage[q.number] && "animate-spin")} />
+                            <ExternalLink className="w-4 h-4" /> Buat Gambar di ChatGPT
                           </button>
                           <button 
-                            onClick={() => handleRemoveImage(q.number)}
-                            title="Hapus Gambar"
-                            className="p-1.5 bg-white text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            onClick={() => handlePasteImageUrl(q.number)} 
+                            className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Tempel URL Gambar
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="no-print">
-                        <button onClick={() => generateImage(q.number, q)} disabled={isGeneratingImage[q.number]} className="gradient-citrus text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                          <DownloadCloud className="w-4 h-4" /> {isGeneratingImage[q.number] ? 'Memproses Gambar...' : 'Generate Stimulus Visual'}
-                        </button>
-                      </div>
+                      )
                     )}
+
                     <div className="flex items-start gap-4">
                       <span className="font-bold min-w-[25px] h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0">{q.number}.</span>
                       <div className="flex-1"><div className="text-justify leading-relaxed whitespace-pre-wrap font-medium text-slate-900">{q.text}</div></div>
