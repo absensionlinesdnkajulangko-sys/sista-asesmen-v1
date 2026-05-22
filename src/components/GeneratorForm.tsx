@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Minus, School, User as UserIcon, Briefcase, GraduationCap, Calendar, BookOpen, Layers, Target, ClipboardList, Trash2, AlertTriangle, Clock } from 'lucide-react';
 import { SoalFormData, QuestionType, QuestionConfig } from '../types';
 import { NavItem } from './Sidebar';
@@ -16,9 +16,9 @@ const QUESTION_TYPES: QuestionType[] = ['Pilihan Ganda', 'Pilihan Ganda Kompleks
 
 // KODE KEAMANAN / NAMA SEKOLAH YANG DIIZINKAN
 const ALLOWED_SCHOOLS = [
-  "SD Negeri 1 Ampana Kota",
-  "SD NEGERI 1 AMPANA KOTA",
-  "SDN 1 AMPANA KOTA"
+  "SD Negeri 1 Merdeka",
+  "SD NEGERI 1 MERDEKA",
+  "SDN 1 MERDEKA"
 ];
 
 // KODE KEAMANAN / NAMA GURU YANG DIIZINKAN
@@ -32,12 +32,14 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
   // Cek apakah mode saat ini termasuk kategori Sumatif
   const isSumatifMode = mode === 'sh' || mode === 'sts' || mode === 'sas';
 
+  // State untuk mendeteksi apakah kuota API Gemini habis
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+
   const [formData, setFormData] = useState<SoalFormData>(() => {
     const savedData = localStorage.getItem(`sista_form_${mode}`);
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        // Migrasi aman jika data lama di localStorage masih berbentuk string tunggal
         if (typeof parsed.material === 'string') {
           parsed.material = parsed.material ? [parsed.material] : [''];
         }
@@ -62,7 +64,7 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
       timeAllocation: '', 
       material: [''], 
       cp: '',
-      withImages: true,
+      withImages: false,
       questionConfigs: [{ type: 'Pilihan Ganda', count: 5, optionCount: 4, scorePerItem: 1 }],
       cognitiveLevel: ['MOTS']
     };
@@ -82,6 +84,9 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
   }, [formData, mode]);
 
   useEffect(() => {
+    // Reset state eror kuota setiap kali beralih jenis asesmen
+    setIsQuotaExceeded(false);
+
     const savedData = localStorage.getItem(`sista_form_${mode}`);
     if (savedData) {
       try {
@@ -159,10 +164,20 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSchoolValid) return;
-    onSubmit(formData);
+    setIsQuotaExceeded(false);
+    
+    try {
+      await onSubmit(formData);
+    } catch (error: any) {
+      const errorText = error?.message || String(error);
+      if (errorText.includes("429") || errorText.toLowerCase().includes("quota") || errorText.toLowerCase().includes("limit")) {
+        setIsQuotaExceeded(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
   };
 
   const sectionClass = "glass p-6 md:p-8 rounded-[1.5rem] space-y-6";
@@ -170,7 +185,27 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
   const inputClass = "w-full bg-white/50 border border-citrus-200 rounded-xl py-3 px-4 focus:ring-2 focus:ring-citrus-500 focus:border-transparent outline-none transition-all";
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-8 pb-20">
+    <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto space-y-8 pb-20">
+      
+      {/* Kotak Notifikasi di Bagian Paling Atas Formulir dengan Transisi yang Aman */}
+      <AnimatePresence>
+        {isQuotaExceeded && (
+          <motion.div 
+            key="quota-alert"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex items-center gap-3 p-5 bg-rose-50 border-2 border-rose-200 rounded-2xl text-rose-900 shadow-sm"
+          >
+            <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
+            <div>
+              <p className="font-black text-sm uppercase tracking-wide">KUOTA HARIAN ANDA TELAH HABIS</p>
+              <p className="text-xs font-medium text-rose-700/90 mt-0.5">Batas permintaan harian API gratis dari Google Cloud telah terpenuhi. Silakan hubungi admin Fidhal Touna AI atau ganti token API Anda.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Identity Section */}
       <div className={sectionClass}>
         <div className="flex items-center gap-3 mb-2">
@@ -214,7 +249,7 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
             <input name="academicYear" value={formData.academicYear} onChange={handleChange} required className={inputClass} placeholder="Contoh: 2023/2024" />
           </div>
           <div className="md:col-span-2 space-y-2">
-            <label className={labelClass}><Target className="w-4 h-4"/> Nama Kabupaten/Kecamatan/Kelurahan/Desa Sekolah Anda</label>
+            <label className={labelClass}><Target className="w-4 h-4"/> Nama (Kabupaten/Kecamatan/Kelurahan/Desa) Sekolah Anda</label>
             <input name="regionName" value={formData.regionName} onChange={handleChange} required className={inputClass} placeholder="Contoh: Kec. Merdeka, Kab. Indonesia" />
           </div>
         </div>
@@ -367,8 +402,6 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
                       </select>
                     </div>
                   )}
-                  
-                  {/* PERBAIKAN: Input Skor/Soal telah dihapus dari sini */}
 
                   {formData.questionConfigs.length > 1 && (
                     <div className="pt-5">
@@ -401,21 +434,6 @@ export default function GeneratorForm({ onSubmit, isLoading, mode }: GeneratorFo
                 {item}
               </button>
             ))}
-          </div>
-          <div className="pt-4">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer"
-                  checked={formData.withImages}
-                  onChange={(e) => setFormData({ ...formData, withImages: e.target.checked })}
-                />
-                <div className="w-12 h-6 bg-slate-200 peer-checked:bg-citrus-600 rounded-full transition-colors" />
-                <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6 shadow-sm" />
-              </div>
-              <span className="text-sm font-bold text-slate-700 group-hover:text-citrus-600 transition-colors">Generate Stimulus Gambar Otomatis (AI Image)</span>
-            </label>
           </div>
           {formData.cognitiveLevel.length === 0 && (
             <p className="text-xs text-red-500 italic">Pilih minimal satu level kognitif.</p>
