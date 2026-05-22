@@ -9,7 +9,8 @@ import GeneratorForm from './components/GeneratorForm';
 import ModulTable from './components/ModulTable';
 import Sidebar, { NavItem } from './components/Sidebar';
 import { SoalFormData, GeneratedSoal } from './types';
-import { generateSoal } from './lib/gemini';
+// PERBAIKAN: Impor fungsi baru yang hanya meng-generate soal saja
+import { generateSoalOnly } from './lib/gemini'; 
 import { motion, AnimatePresence } from 'motion/react';
 import { Target, LayoutDashboard, Search, Bell, User as UserIcon, FileText } from 'lucide-react';
 
@@ -27,14 +28,15 @@ export default function App() {
     setFormData(null);
   };
 
+  // PERBAIKAN: Memanggil wrapper generateSoalOnly agar kunci dan kisi-kisi dimuat secara on-demand nanti
   const handleSubmit = async (data: SoalFormData) => {
     setIsLoading(true);
     setFormData(data);
     try {
-      const result = await generateSoal(data);
+      const result = await generateSoalOnly(data);
       setGeneratedSoal(result);
-    } catch (error) {
-      alert("Terjadi kesalahan saat generate soal. Silakan coba lagi.");
+    } catch (error: any) {
+      alert(error.message || "Terjadi kesalahan saat generate soal. Silakan coba lagi.");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -102,7 +104,7 @@ export default function App() {
                 <div className="w-10 h-10 rounded-xl bg-citrus-50 text-citrus-600 flex items-center justify-center font-bold mb-4">2</div>
                 <h4 className="font-bold text-slate-900 mb-2">Isi Identitas & Kurikulum</h4>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Lengkapi data satuan pendidikan, guru, dan kepala sekolah. Masukkan Capaian Pembelajaran (CP) dan Tujuan Pembelajaran (TP) yang ingin diukur.
+                  Lengkapi data satuan pendidikan, guru, and kepala sekolah. Masukkan Capaian Pembelajaran (CP) dan Tujuan Pembelajaran (TP) yang ingin diukur.
                 </p>
               </div>
 
@@ -164,7 +166,6 @@ export default function App() {
       );
     }
 
-    // Default to Generator Form for all other tabs (simplification for this turn)
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
         <div className="flex flex-col space-y-2 mb-10">
