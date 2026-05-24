@@ -12,7 +12,7 @@ async function fetchSecureWithRetry(url: string, options: any, retries = 3, back
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || "";
       
-      // Jika backend melempar 500 karena Google mengembalikan 503 (model overloaded / high demand)
+      // Jika backend melempar 500/429 karena masalah kuota atau server Google sibuk
       const isGoogleBusy = response.status === 500 && 
         (errorMessage.includes("503") || 
          errorMessage.toLowerCase().includes("demand") || 
@@ -21,7 +21,6 @@ async function fetchSecureWithRetry(url: string, options: any, retries = 3, back
       if (isGoogleBusy && retries > 0) {
         console.warn(`[FIDHAL TOUNA AI] Server sibuk saat mengakses ${url}. Mencoba ulang dalam ${backoff}ms... (Sisa percobaan: ${retries})`);
         await delay(backoff);
-        // Lakukan percobaan ulang dengan menaikkan jeda waktu tunggu (Exponential Backoff)
         return fetchSecureWithRetry(url, options, retries - 1, backoff * 1.5);
       }
       
@@ -30,7 +29,6 @@ async function fetchSecureWithRetry(url: string, options: any, retries = 3, back
     
     return await response.json();
   } catch (error: any) {
-    // Jika error jaringan murni terdeteksi membawa pesan demand, coba lagi
     if (retries > 0 && error.message?.toLowerCase().includes("demand")) {
       await delay(backoff);
       return fetchSecureWithRetry(url, options, retries - 1, backoff * 1.5);
@@ -39,12 +37,16 @@ async function fetchSecureWithRetry(url: string, options: any, retries = 3, back
   }
 }
 
-// PERBAIKAN KRITIKAL: Memaksa Gemini membuat kriteria logika skor bergradasi, istilah 'murid', dan variasi acak untuk deskripsi gambar khusus (imagePrompt)
+// PERBAIKAN UTAMA: Memperketat instruksi pembuatan soal Pilihan Ganda Kompleks (PGK) agar array teks pernyataan tidak kosong
 const CUSTOM_INSTRUCTION = `PENTING: Gunakan selalu kata 'murid' untuk merujuk pada anak didik. Jangan pernah menggunakan istilah 'peserta didik' di dalam teks output yang Anda hasilkan.
+
+STRICT RULE - ATURAN PEMBUATAN SOAL PILIHAN GANDA KOMPLEKS (PGK):
+Khusus untuk soal dengan tipe "Pilihan Ganda Kompleks", Anda WAJIB mengisi properti 'multiOptions' dengan minimal 4 atau 5 kalimat pernyataan mandiri yang tekstual dan kontekstual materi terkait (Contoh format: ["Pernyataan konsep A benar", "Pernyataan analisis B salah", "Pernyataan C", "Pernyataan D"]). 
+DILARANG KERAS membiarkan properti 'multiOptions' kosong ([]) atau bernilai null jika jenis tipe soal tersebut adalah Pilihan Ganda Kompleks!
 
 STRICT RULE - PEMILIHAN STIMULUS VISUAL OTOMATIS SECARA ACAK:
 Setiap kali Anda merancang pertanyaan, Anda WAJIB melakukan hal berikut secara acak:
-1. Lakukan pemilihan acak secara internal: Berikan peluang sekitar 40% hingga 50% bagi sebuah soal untuk memiliki stimulus visual (membutuhkan gambar), dan sisanya adalah soal berbasis teks murni.
+1. Lakukan pemilihan acak secara internal: Berikan peluang sekitar 30% hingga 40% bagi sebuah soal untuk memiliki stimulus visual (membutuhkan gambar), dan sisanya adalah soal berbasis teks murni.
 2. JIKA SOAL TERPILIH MEMILIKI GAMBAR: Tambahkan properti 'imagePrompt' di dalam objek soal. Isi dari 'imagePrompt' harus berupa deskripsi gambar pendukung yang sangat spesifik, akurat, dan relevan dengan esensi soal tersebut dalam BAHASA INGGRIS. Jangan memasukkan teks pertanyaan ke dalamnya, melainkan deskripsikan objek visualnya secara jelas (contoh: "A clear 3D mathematical diagram of a single cube with side measurements written on it").
 3. JIKA SOAL TIDAK MEMILIKI GAMBAR: JANGAN menambahkan properti 'imagePrompt' ke dalam objek soal tersebut (atau isi nilainya dengan null/string kosong).
 
@@ -87,12 +89,11 @@ Ketentuan Perhitungan Nilai Berdasarkan Bentuk Soal:
    - Skor maksimal: 4 atau 5
    - Rubrik: Berikan rincian bobot dari Skor 0 hingga Skor Maksimal berdasarkan kelengkapan argumen, ketepatan analisis, dan kerangka berpikir murid.`;
 
-// 1. HANYA GENERATE SOAL UTAMA (Dengan Proteksi Auto-Retry)
+// 1. HANYA GENERATE SOAL UTAMA
 export async function generateSoalOnly(data: SoalFormData): Promise<GeneratedSoal> {
   try {
-    console.log("Memulai pembuatan soal utama saja...");
+    console.log("Memulai pembuatan soal utama...");
     
-    // MENYISIPKAN INSTRUKSI KUSTOM KE DALAM DATA SEBELUM DIKIRIM KE BACKEND API
     const payload = {
       ...data,
       customInstruction: CUSTOM_INSTRUCTION
@@ -106,42 +107,47 @@ export async function generateSoalOnly(data: SoalFormData): Promise<GeneratedSoa
 
     return {
       header: dataSoal.header,
-      questions: dataSoal.questions,
-      kisiKisi: [] // Kosong di awal sesuai permintaan
+      // PERBAIKAN SINKRONISASI: Menjamin multiOptions lolos ke UI Komponen agar opsi PGK muncul di layar
+      questions: dataSoal.questions.map((q: any) => ({
+        ...q,
+        imagePrompt: q.imagePrompt || null,
+        options: q.options || [],
+        multiOptions: q.multiOptions || [] 
+      })),
+      kisiKisi: []
     };
   } catch (error: any) {
-    console.error("Error Generate Soal Only:", error);
-    if (error.message?.includes("503") || error.message?.toLowerCase().includes("demand")) {
-      throw new Error("Server AI Google saat ini sedang sangat sibuk. Sistem telah mencoba otomatis sebanyak 3 kali namun tetap penuh. Silakan tunggu 30 detik lalu klik kembali tombol Generate.");
-    }
+    console.error("Error Frontend Soal Utama:", error);
     throw error;
   }
 }
 
-// 2. GENERATE KUNCI JAWABAN (Dipanggil saat tab Kunci diklik, Dengan Proteksi Auto-Retry)
+// 2. GENERATE KUNCI JAWABAN & RUBRIK
 export async function generateKunciOnly(header: any, questions: any[]): Promise<any[]> {
   try {
-    console.log("Memulai pembuatan kunci jawaban secara terpisah...");
+    console.log("Memulai pembuatan kunci & rubrik...");
     const dataKunci = await fetchSecureWithRetry('/api/generate/kunci', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         header, 
         questions,
-        customInstruction: CUSTOM_INSTRUCTION // Menyisipkan instruksi pada kunci jawaban
+        customInstruction: CUSTOM_INSTRUCTION
       }),
     });
-    return dataKunci.questions;
+    
+    // PERBAIKAN SINKRONISASI: Memetakan 'explanation' backend ke dalam 'score' agar tabel kunci terisi otomatis
+    return dataKunci.questions.map((q: any) => ({
+      ...q,
+      score: q.explanation || q.score || q.rubrik || "Belum ada pembahasan."
+    }));
   } catch (error: any) {
-    console.error("Error Generate Kunci:", error);
-    if (error.message?.includes("503") || error.message?.toLowerCase().includes("demand")) {
-      throw new Error("Server AI sedang padat saat merumuskan Kunci Jawaban. Silakan klik ulang kembali tab Kunci & Rubrik.");
-    }
+    console.error("Error Frontend Kunci:", error);
     throw error;
   }
 }
 
-// 3. GENERATE KISI-KISI (Dipanggil saat tab Kisi-kisi diklik, Dengan Proteksi Auto-Retry)
+// 3. GENERATE KISI-KISI
 export async function generateKisiOnly(formInput: SoalFormData, questions: any[]): Promise<any[]> {
   try {
     console.log("Memulai pembuatan kisi-kisi secara terpisah...");
@@ -151,7 +157,7 @@ export async function generateKisiOnly(formInput: SoalFormData, questions: any[]
       body: JSON.stringify({ 
         formInput, 
         questions,
-        customInstruction: CUSTOM_INSTRUCTION // Menyisipkan instruksi pada kisi-kisi
+        customInstruction: CUSTOM_INSTRUCTION 
       }),
     });
     return dataKisi.kisiKisi;
