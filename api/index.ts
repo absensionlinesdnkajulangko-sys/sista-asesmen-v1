@@ -1,36 +1,24 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const currentDir = process.cwd();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Middleware for Gemini key check
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is required");
+    throw new Error("SISTA Server Error: GEMINI_API_KEY belum terpasang di Vercel Environment Variables.");
   }
-  return new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
-  });
+  return new GoogleGenAI({ apiKey: apiKey });
 };
 
-// Helper untuk memformat materi array menjadi string list
 const formatMaterialsHelper = (material: any) => {
   return Array.isArray(material) 
     ? material.filter((m: string) => m.trim() !== '').map((m: string, i: number) => `${i + 1}. ${m}`).join("\n      ")
@@ -38,112 +26,132 @@ const formatMaterialsHelper = (material: any) => {
 };
 
 // ===================================================================
+// PERBAIKAN UTAMA: Helper untuk mensterilkan teks input agar tidak merusak JSON prompt
+// ===================================================================
+const sanitizePromptString = (text: any): string => {
+  if (!text) return "";
+  return String(text)
+    .replace(/\\/g, "\\\\")   // Escape backslash
+    .replace(/"/g, "'")       // Ubah kutip dua menjadi kutip tunggal agar aman di dalam properti JSON
+    .replace(/\n/g, " ")      // Ubah baris baru menjadi spasi biasa
+    .replace(/\r/g, "")
+    .trim();
+};
+
+// HELPER: Parsing JSON yang aman dari pembungkus Markdown maupun Karakter Kontrol tak terlihat
+const safeParseJSON = (responseText: string) => {
+  let cleanText = responseText.trim();
+  if (cleanText.startsWith("```")) {
+    cleanText = cleanText.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+  }
+  try {
+    return JSON.parse(cleanText);
+  } catch (e) {
+    // Menghapus karakter kontrol (ASCII 0-31) yang sering merusak struktur validasi JSON
+    return JSON.parse(cleanText.replace(/[\u0000-\u001F]+/g, ""));
+  }
+};
+
+// ===================================================================
 // 1. ENDPOINT: GENERATE LEMBAR SOAL UTAMA
 // ===================================================================
 app.post("/api/generate/soal", async (req, res) => {
   try {
-    // PERBAIKAN: Mengekstrak customInstruction yang dikirim oleh frontend
     const { customInstruction, ...data } = req.body;
     const ai = getGeminiClient();
     
-    const configs = data.questionConfigs.map((c: any) => 
-      `${c.count} soal ${c.type} ${c.type === 'Pilihan Ganda' ? `dengan ${c.optionCount} pilihan jawaban` : ''}`
-    ).join(", ");
+    const configs = data.questionConfigs ? data.questionConfigs.map((c: any) => 
+      `${c.count} soal ${c.type}`
+    ).join(", ") : "beberapa soal";
 
-    const formattedMaterials = formatMaterialsHelper(data.material);
+    // Semua data dinamis disterilkan menggunakan fungsi sanitizePromptString
+    const sSchoolName = sanitizePromptString(data.schoolName);
+    const sSubject = sanitizePromptString(data.subject);
+    const sGrade = sanitizePromptString(data.grade);
+    const sSemester = sanitizePromptString(data.semester);
+    const sCp = sanitizePromptString(data.cp);
+    const sInstruction = sanitizePromptString(customInstruction);
 
     const prompt = `
-      Bertindaklah sebagai Pakar Asesmen Kurikulum Merdeka dan Ahli Evaluasi Pendidikan Indonesia.
-      Tugas Anda adalah memproduksi INSTRUMEN BUTIR SOAL SAJA berdasarkan data input berikut.
+      Bertindaklah sebagai Pakar Asesmen Kurikulum Merdeka tingkat Sekolah Dasar. 
+      Tugas: Buat instrumen butir soal untuk mata pelajaran: ${sSubject || "Umum"}, Kelas ${sGrade || ""}.
+      Capaian Pembelajaran (CP): ${sCp || ""}.
+      Konfigurasi Soal: ${configs}
+      Instruksi Tambahan khusus: ${sInstruction || ""}
       
-      PANDUAN ATURAN BAHASA UTAMA:
-      ${customInstruction || "Gunakan istilah bahasa Indonesia yang baku."}
+      PENTING & WAJIB: 
+      1. Jawab HANYA dengan JSON valid sesuai struktur di bawah. 
+      2. PENTING: Jika di dalam teks soal, stimulus, atau pilihan ganda terdapat kata yang membutuhkan tanda kutip dua, Anda WAJIB mengubahnya menjadi kutip tunggal (') agar JSON tidak rusak.
+      3. Pastikan semua tanda kurung kurawal pembuka dan penutup seimbang dan tidak terputus.
+      4. Jika pertanyaan meminta atau membutuhkan gambar (mengandung instruksi seperti 'perhatikan gambar', 'amati gambar', 'pada gambar'), isi properti 'imagePrompt' dengan deskripsi bahasa Inggris yang mendetail untuk generator gambar. Jika tidak membutuhkan gambar, isi 'imagePrompt' dengan null.
 
-      DATA INPUT:
-      - Satuan Pendidikan: ${data.schoolName}
-      - Mapel: ${data.subject}
-      - Materi Pokok / Utama: \n${formattedMaterials}
-      - Capaian Pembelajaran (CP): ${data.cp}
-      - Kelas/Semester: ${data.grade} / ${data.semester}
-      - Tahun Ajaran: ${data.academicYear}
-      - Konfigurasi Soal: ${configs}
-      - Level Kognitif: ${data.cognitiveLevel.join(", ")}
-      - Gunakan Stimulus Gambar: ${data.withImages ? 'YA (Hasilkan deskripsi visual)' : 'TIDAK'}
-      
-      INSTRUKSI KHUSUS LEMBAR SOAL:
-      1. Distribusikan total konfigurasi soal secara otomatis, merata, dan proporsional ke SELURUH materi pokok yang diinputkan.
-      2. Pilihan Ganda: WAJIB menyertakan property "options" sebagai array of strings tanpa abjad penanda (Jangan sertakan "A.", "B.", dll). Jumlah pilihan harus ${data.questionConfigs.find((c: any) => c.type === 'Pilihan Ganda')?.optionCount || 4}.
-      3. Pilihan Ganda Kompleks: WAJIB memiliki beberapa opsi di "multiOptions". Bagian "isCorrect" di-set false atau true secara acak namun logis (akan divalidasi saat pembuat kunci).
-      4. Gambar: JIKA stimulus membutuhkan gambar, sertakan property "imageUrl" dengan format "IMAGE_STIMULUS: [deskripsi detail gambar]".
-      5. Pada rute ini, Anda hanya fokus membuat struktur pertanyaan, teks stimulus, dan opsi jawaban saja. Nilai "answerKey" dan "explanation" CUKUP DIISI STRING KOSONG "" atau "-" saja terlebih dahulu.
-
-      STRUKTUR JSON OUTPUT WAJIB:
+      STRUKTUR JSON WAJIB:
       {
         "header": {
-          "schoolName": "${data.schoolName}",
-          "subject": "${data.subject}",
-          "classSemester": "${data.grade} / ${data.semester}",
-          "material": "Gabungan atau ringkasan materi pokok yang diisi",
-          "timeLimit": "${data.timeAllocation || '60 Menit'}"
+          "schoolName": "${sSchoolName}", 
+          "subject": "${sSubject}", 
+          "classSemester": "${sGrade} / ${sSemester}", 
+          "material": "Ringkasan Materi Pokok terkait", 
+          "timeLimit": "60 Menit"
         },
         "questions": [
           {
             "number": 1,
             "type": "Pilihan Ganda",
-            "stimulus": "Teks bacaan stimulus jika ada",
-            "text": "Kalimat pertanyaan soal",
-            "options": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
-            "multiOptions": [{"text": "Opsi A", "isCorrect": false}],
-            "matchingPairs": [{"prompt": "Pernyataan A", "answer": ""}],
-            "answerKey": "",
-            "explanation": "",
-            "cognitiveLevel": "MOTS",
-            "imageUrl": ""
+            "stimulus": "Isi jika ada bacaan pendukung, jika tidak kosongkan saja",
+            "text": "Teks pertanyaan soal...",
+            "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+            "multiOptions": [],
+            "imagePrompt": null,
+            "cognitiveLevel": "MOTS"
           }
         ]
       }
-      Respond HANYA dengan JSON valid tanpa markdown pembuka/penutup.
     `;
 
     const response = await ai.models.generateContent({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash", 
       contents: prompt,
-      config: { responseMimeType: "application/json", maxOutputTokens: 8192, temperature: 0.7 }
+      config: { responseMimeType: "application/json", maxOutputTokens: 8192 }
     });
 
-    const text = response.text || "";
-    const cleanText = text.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
-    const rawData = JSON.parse(cleanText);
+    const rawData = safeParseJSON(response.text || "");
 
-    // Normalisasi struktur output soal
     const parsedData = {
-      header: {
-        schoolName: rawData.header?.schoolName || data.schoolName,
-        subject: rawData.header?.subject || data.subject,
-        classSemester: rawData.header?.classSemester || `${data.grade} / ${data.semester}`,
-        material: rawData.header?.material || "Materi Pokok",
-        timeLimit: rawData.header?.timeLimit || data.timeAllocation || "60 Menit"
-      },
-      questions: (rawData.questions || []).map((q: any, idx: number) => ({
-        number: q.number || (idx + 1),
-        type: q.type || "Pilihan Ganda",
-        stimulus: q.stimulus || "",
-        text: q.text || "",
-        options: (q.options || []).map((opt: string) => typeof opt === 'string' ? opt.replace(/^[A-E]\.\s*/i, '') : opt),
-        multiOptions: q.multiOptions || [],
-        matchingPairs: q.matchingPairs || [],
-        answerKey: "",
-        explanation: "",
-        cognitiveLevel: q.cognitiveLevel || "MOTS",
-        imageUrl: q.imageUrl || ""
-      })),
-      kisiKisi: [] // Kosong, diisi via endpoint terpisah
+      header: rawData.header || {},
+      questions: (rawData.questions || []).map((q: any, idx: number) => {
+        const isPGK = q.type?.toLowerCase().includes("kompleks");
+        const finalMultiOptions = isPGK && (!q.multiOptions || q.multiOptions.length === 0) 
+          ? (q.options || []) 
+          : (q.multiOptions || []);
+
+        return {
+          number: q.number || (idx + 1),
+          type: q.type || "Pilihan Ganda",
+          stimulus: q.stimulus || "",
+          text: q.text || "",
+          imagePrompt: q.imagePrompt || null,
+          options: isPGK ? [] : (q.options || []),
+          multiOptions: finalMultiOptions,
+          matchingPairs: q.matchingPairs || [],
+          answerKey: q.answerKey || "",
+          explanation: q.explanation || "",
+          cognitiveLevel: q.cognitiveLevel || "MOTS"
+        };
+      }),
+      kisiKisi: []
     };
 
     res.json(parsedData);
   } catch (error: any) {
-    console.error("Error Soal:", error);
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    console.error("[SOAL ERROR]:", error);
+    
+    if (error.message?.includes("quota") || error.message?.includes("429") || error.status === "RESOURCE_EXHAUSTED") {
+      return res.status(429).json({ 
+        error: "Kuota harian Google Gemini API telah habis. Silakan ganti API Key di Vercel Environment Variables atau coba lagi besok." 
+      });
+    }
+    res.status(500).json({ error: "Gagal memproses soal: " + error.message });
   }
 });
 
@@ -152,15 +160,15 @@ app.post("/api/generate/soal", async (req, res) => {
 // ===================================================================
 app.post("/api/generate/kunci", async (req, res) => {
   try {
-    // PERBAIKAN: Mengekstrak customInstruction dari request frontend
-    const { header, questions, customInstruction } = req.body; 
+    const { questions, customInstruction } = req.body; 
     const ai = getGeminiClient();
+    const sInstruction = sanitizePromptString(customInstruction);
 
     const prompt = `
       Bertindaklah sebagai Pakar Evaluasi Pendidikan. Tugas Anda adalah menganalisis daftar instrumen soal di bawah ini dan merumuskan KUNCI JAWABAN yang valid beserta PEMBAHASAN/RUBRIK PENILAIAN yang mendalam untuk setiap butir soal.
 
       PANDUAN ATURAN BAHASA UTAMA:
-      ${customInstruction || "Gunakan istilah bahasa Indonesia yang baku."}
+      ${sInstruction || "Gunakan istilah bahasa Indonesia yang baku."}
 
       SOAL YANG HARUS DIBUATKAN KUNCI & BAHASAN:
       ${JSON.stringify(questions)}
@@ -172,19 +180,16 @@ app.post("/api/generate/kunci", async (req, res) => {
       - Isian Singkat: Berikan kunci jawaban yang pendek, tepat, dan baku.
       - Uraian: Berikan poin jawaban ideal beserta kriteria rubrik skor nilai di dalam kolom deskripsi penjelasan.
 
-      Kembalikan data dalam bentuk array of objects "questions" yang strukturnya sama persis, namun sekarang nilai properti "answerKey" dan "explanation" WAJIB TELAH TERISI LENGKAP DAN VALID.
-
       STRUKTUR OUTPUT JSON:
       {
         "questions": [
           {
             "number": 1,
             "answerKey": "Jawaban Benar",
-            "explanation": "Alasan mendalam mengapa jawaban tersebut benar dan bagaimana rubrik poinnya."
+            "explanation": "Alasan mendalam mengapa jawaban tersebut benar."
           }
         ]
       }
-      Respond HANYA dengan JSON valid.
     `;
 
     const response = await ai.models.generateContent({ 
@@ -193,11 +198,8 @@ app.post("/api/generate/kunci", async (req, res) => {
       config: { responseMimeType: "application/json", maxOutputTokens: 8192 }
     });
 
-    const text = response.text || "";
-    const cleanText = text.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
-    const rawData = JSON.parse(cleanText);
+    const rawData = safeParseJSON(response.text || "");
 
-    // Gabungkan kembali kunci jawaban dari AI ke dalam database pertanyaan frontend
     const updatedQuestions = questions.map((origQ: any) => {
       const aiKeyData = (rawData.questions || []).find((item: any) => item.number === origQ.number);
       return {
@@ -209,7 +211,13 @@ app.post("/api/generate/kunci", async (req, res) => {
 
     res.json({ questions: updatedQuestions });
   } catch (error: any) {
-    console.error("Error Kunci:", error);
+    console.error("[KUNCI ERROR]:", error);
+
+    if (error.message?.includes("quota") || error.message?.includes("429") || error.status === "RESOURCE_EXHAUSTED") {
+      return res.status(429).json({ 
+        error: "Gagal memproses kunci jawaban: Kuota API Gemini Anda sudah habis." 
+      });
+    }
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 });
@@ -219,27 +227,23 @@ app.post("/api/generate/kunci", async (req, res) => {
 // ===================================================================
 app.post("/api/generate/kisi-kisi", async (req, res) => {
   try {
-    // PERBAIKAN: Mengekstrak customInstruction dari request frontend
     const { formInput, questions, customInstruction } = req.body; 
     const ai = getGeminiClient();
 
-    const formattedMaterials = formatMaterialsHelper(formInput.material);
+    const formattedMaterials = formatMaterialsHelper(formInput?.material);
+    const sInstruction = sanitizePromptString(customInstruction);
+    const sCp = sanitizePromptString(formInput?.cp);
 
     const prompt = `
       Bertindaklah sebagai Penyusun Kurikulum Merdeka. Tugas Anda adalah memetakan dan membuat matriks KISI-KISI SOAL yang selaras sempurna dengan materi pokok, Capaian Pembelajaran (CP), dan butir soal yang sudah ada.
 
       PANDUAN ATURAN BAHASA UTAMA:
-      ${customInstruction || "Gunakan istilah bahasa Indonesia yang baku."}
+      ${sInstruction || "Gunakan istilah bahasa Indonesia yang baku."}
 
       DATA RUJUKAN:
-      - CP Utama: ${formInput.cp}
+      - CP Utama: ${sCp || ""}
       - Daftar Materi Pokok: \n${formattedMaterials}
-      - Daftar Butir Soal Terbentuk: ${JSON.stringify(questions.map((q: any) => ({ number: q.number, type: q.type, text: q.text, level: q.cognitiveLevel })))}
-
-      TUGAS ANDA:
-      1. Untuk setiap nomor soal di atas, buatkan baris kisi-kisi terperinci.
-      2. Rumuskan "tp" (Tujuan Pembelajaran) yang logis, spesifik, dan operasional yang menjadi payung hukum dari materi soal tersebut.
-      3. Tulis "indikatorSoal" dengan rumusan kalimat baku (Contoh: "Disajikan teks cerita, murid mampu menentukan..."). Indikator harus selaras dengan level kognitif soal asli.
+      - Daftar Butir Soal Terbentuk: ${JSON.stringify(questions ? questions.map((q: any) => ({ number: q.number, type: q.type, text: q.text, level: q.cognitiveLevel })) : [])}
 
       STRUKTUR OUTPUT JSON WAJIB:
       {
@@ -253,7 +257,6 @@ app.post("/api/generate/kisi-kisi", async (req, res) => {
           }
         ]
       }
-      Respond HANYA dengan JSON valid.
     `;
 
     const response = await ai.models.generateContent({ 
@@ -262,25 +265,26 @@ app.post("/api/generate/kisi-kisi", async (req, res) => {
       config: { responseMimeType: "application/json", maxOutputTokens: 8192 }
     });
 
-    const text = response.text || "";
-    const cleanText = text.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
-    const rawData = JSON.parse(cleanText);
+    const rawData = safeParseJSON(response.text || "");
 
     res.json({ kisiKisi: rawData.kisiKisi || [] });
   } catch (error: any) {
-    console.error("Error Kisi-Kisi:", error);
+    console.error("[KISI-KISI ERROR]:", error);
+
+    if (error.message?.includes("quota") || error.message?.includes("429") || error.status === "RESOURCE_EXHAUSTED") {
+      return res.status(429).json({ 
+        error: "Gagal memproses kisi-kisi: Kuota API Gemini Anda sudah habis." 
+      });
+    }
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 });
 
 // ===================================================================
 
-// Serve static files directly for production/Vercel environments
-const distPath = path.join(process.cwd(), "dist");
+const distPath = path.join(currentDir, "dist");
 app.use(express.static(distPath));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(distPath, "index.html"));
-});
+app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
 
 export default app;
 
