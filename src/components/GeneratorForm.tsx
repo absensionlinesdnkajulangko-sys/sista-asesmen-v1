@@ -16,9 +16,9 @@ const QUESTION_TYPES: QuestionType[] = ['Pilihan Ganda', 'Pilihan Ganda Kompleks
 
 // KODE KEAMANAN / NAMA SEKOLAH YANG DIIZINKAN
 const ALLOWED_SCHOOLS = [
-  "SD Negeri 1 Merdeka",
-  "SD NEGERI 1 MERDEKA",
-  "SDN 1 MERDEKA"
+  "SD Negeri 1 Ampana Kota",
+  "SD NEGERI 1 AMPANA KOTA",
+  "SDN 1 AMPANA KOTA"
 ];
 
 // KODE KEAMANAN / NAMA GURU YANG DIIZINKAN
